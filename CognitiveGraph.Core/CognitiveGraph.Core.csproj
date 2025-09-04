@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    
+    <!-- NuGet Package Properties -->
+    <PackageId>CognitiveGraph.Core</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <Authors>DevelApp-ai</Authors>
+    <Company>DevelApp-ai</Company>
+    <Product>Cognitive Graph</Product>
+    <Description>Zero-copy Cognitive Graph for advanced code analysis. Unifies syntactic ambiguity handling (SPPF) with semantic analysis (CPG) in a high-performance, memory-efficient data structure.</Description>
+    <PackageTags>parsing;AST;CPG;SPPF;code-analysis;static-analysis;zero-copy</PackageTags>
+    <PackageProjectUrl>https://github.com/DevelApp-ai/CognitiveGraph</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <RepositoryUrl>https://github.com/DevelApp-ai/CognitiveGraph</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+</Project>

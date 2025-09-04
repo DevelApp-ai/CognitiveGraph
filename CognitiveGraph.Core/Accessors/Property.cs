@@ -261,6 +261,80 @@ public readonly ref struct SymbolNodeOffsetCollection
 }
 
 /// <summary>
+/// Collection of packed node offsets
+/// </summary>
+public readonly ref struct PackedNodeOffsetCollection
+{
+    private readonly ReadOnlySpan<byte> _data;
+    private readonly CognitiveGraphBuffer _graph;
+
+    internal PackedNodeOffsetCollection(ReadOnlySpan<byte> data, CognitiveGraphBuffer graph)
+    {
+        _data = data;
+        _graph = graph;
+    }
+
+    /// <summary>
+    /// Number of packed nodes
+    /// </summary>
+    public int Count => _data.Length / sizeof(uint);
+
+    /// <summary>
+    /// Gets a packed node by index
+    /// </summary>
+    public PackedNode this[int index]
+    {
+        get
+        {
+            if (index < 0 || index >= Count)
+                throw new ArgumentOutOfRangeException(nameof(index));
+
+            var offset = MemoryMarshal.Read<uint>(_data.Slice(index * sizeof(uint)));
+            var nodeSpan = _graph.Slice((int)offset, PackedNodeData.SIZE);
+            return new PackedNode(nodeSpan, _graph);
+        }
+    }
+
+    /// <summary>
+    /// Enumerates all packed nodes
+    /// </summary>
+    public PackedNodeOffsetEnumerator GetEnumerator() => new(_data, _graph);
+}
+
+/// <summary>
+/// Enumerator for packed node offsets
+/// </summary>
+public ref struct PackedNodeOffsetEnumerator
+{
+    private readonly ReadOnlySpan<byte> _data;
+    private readonly CognitiveGraphBuffer _graph;
+    private int _currentIndex;
+
+    internal PackedNodeOffsetEnumerator(ReadOnlySpan<byte> data, CognitiveGraphBuffer graph)
+    {
+        _data = data;
+        _graph = graph;
+        _currentIndex = -1;
+    }
+
+    public PackedNode Current
+    {
+        get
+        {
+            var offset = MemoryMarshal.Read<uint>(_data.Slice(_currentIndex * sizeof(uint)));
+            var nodeSpan = _graph.Slice((int)offset, PackedNodeData.SIZE);
+            return new PackedNode(nodeSpan, _graph);
+        }
+    }
+
+    public bool MoveNext()
+    {
+        _currentIndex++;
+        return _currentIndex < _data.Length / sizeof(uint);
+    }
+}
+
+/// <summary>
 /// Enumerator for symbol node offsets
 /// </summary>
 public ref struct SymbolNodeOffsetEnumerator

@@ -73,13 +73,13 @@ public readonly ref struct SymbolNode
     /// <summary>
     /// Gets all packed nodes (derivations) for this symbol
     /// </summary>
-    public PackedNodeCollection GetPackedNodes()
+    public PackedNodeOffsetCollection GetPackedNodes()
     {
         if (PackedNodesOffset == 0)
-            return new PackedNodeCollection(ReadOnlySpan<byte>.Empty, _graph);
+            return new PackedNodeOffsetCollection(ReadOnlySpan<byte>.Empty, _graph);
 
-        var listSpan = _graph.GetListSpan(PackedNodesOffset, PackedNodeData.SIZE);
-        return new PackedNodeCollection(listSpan, _graph);
+        var listSpan = _graph.GetListSpan(PackedNodesOffset, sizeof(uint));
+        return new PackedNodeOffsetCollection(listSpan, _graph);
     }
 
     /// <summary>

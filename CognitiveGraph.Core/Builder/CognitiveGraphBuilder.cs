@@ -152,8 +152,6 @@ public sealed class CognitiveGraphBuilder : IDisposable
     /// </summary>
     public uint WritePackedNode(ushort ruleId, IReadOnlyList<uint>? childNodeOffsets = null, IReadOnlyList<CpgEdgeData>? cpgEdges = null)
     {
-        var offset = _currentOffset;
-
         // Write child nodes list
         var childNodesOffset = childNodeOffsets?.Count > 0 
             ? WriteList(childNodeOffsets, o => { WriteStruct(o); return 0; })
@@ -164,11 +162,12 @@ public sealed class CognitiveGraphBuilder : IDisposable
             ? WriteList(cpgEdges, e => { WriteStruct(e); return 0; })
             : 0u;
 
-        // Write the packed node data
+        // Now write the packed node data and capture its offset
+        var nodeOffset = _currentOffset;
         var nodeData = new PackedNodeData(ruleId, childNodesOffset, cpgEdgesOffset);
         WriteStruct(nodeData);
         
-        return offset;
+        return nodeOffset;
     }
 
     /// <summary>

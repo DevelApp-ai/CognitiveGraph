@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CognitiveGraph.Core\CognitiveGraph.Core.csproj" />
+    <ProjectReference Include="..\CognitiveGraph\CognitiveGraph.csproj" />
   </ItemGroup>
 
 </Project>

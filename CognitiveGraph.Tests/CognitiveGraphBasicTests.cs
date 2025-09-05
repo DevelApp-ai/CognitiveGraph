@@ -1,7 +1,7 @@
 using Xunit;
-using CognitiveGraph.Core;
-using CognitiveGraph.Core.Builder;
-using CognitiveGraph.Core.Schema;
+using CognitiveGraph;
+using CognitiveGraph.Builder;
+using CognitiveGraph.Schema;
 
 namespace CognitiveGraph.Tests;
 
@@ -31,7 +31,7 @@ public class CognitiveGraphBasicTests
         var buffer = builder.Build(rootNodeOffset, "hello world");
         
         // Act
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
         
         // Assert
         Assert.True(graph.Header.MagicNumber == GraphHeader.MAGIC_NUMBER);
@@ -69,7 +69,7 @@ public class CognitiveGraphBasicTests
         var buffer = builder.Build(rootNodeOffset, "hello");
         
         // Act
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
         var stats = graph.GetStatistics();
         
         // Assert
@@ -86,7 +86,7 @@ public class CognitiveGraphBasicTests
         var invalidData = new byte[100]; // Buffer without proper header
         
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => CognitiveGraph.Core.CognitiveGraph.FromBytes(invalidData));
+        Assert.Throws<ArgumentException>(() => CognitiveGraph.FromBytes(invalidData));
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public class CognitiveGraphBasicTests
         var buffer = builder.Build(rootNodeOffset, "foo");
         
         // Act
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
         var rootNode = graph.GetRootNode();
         var packedNodes = rootNode.GetPackedNodes();
         

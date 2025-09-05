@@ -3,10 +3,10 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
-using CognitiveGraph.Core.Buffer;
-using CognitiveGraph.Core.Schema;
+using CognitiveGraph.Buffer;
+using CognitiveGraph.Schema;
 
-namespace CognitiveGraph.Core.Builder;
+namespace CognitiveGraph.Builder;
 
 /// <summary>
 /// Builder for constructing Cognitive Graphs incrementally.

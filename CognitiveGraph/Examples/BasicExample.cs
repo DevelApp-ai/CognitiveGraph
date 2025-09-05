@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using CognitiveGraph.Core;
-using CognitiveGraph.Core.Builder;
-using CognitiveGraph.Core.Schema;
+using CognitiveGraph;
+using CognitiveGraph.Builder;
+using CognitiveGraph.Schema;
 
 namespace CognitiveGraph.Examples;
 
@@ -38,7 +38,7 @@ public static class BasicExample
         var buffer = builder.Build(rootNodeOffset, "hello + world");
 
         // Use the graph
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
 
         Console.WriteLine($"Source text: {graph.GetSourceText()}");
         Console.WriteLine($"Is fully parsed: {graph.IsFullyParsed}");

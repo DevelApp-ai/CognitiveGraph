@@ -1,8 +1,8 @@
 using System;
 using System.Runtime.InteropServices;
-using CognitiveGraph.Core.Schema;
+using CognitiveGraph.Schema;
 
-namespace CognitiveGraph.Core.Buffer;
+namespace CognitiveGraph.Buffer;
 
 /// <summary>
 /// High-performance, zero-copy buffer for storing the Cognitive Graph.

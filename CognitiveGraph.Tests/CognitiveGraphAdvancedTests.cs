@@ -1,7 +1,7 @@
 using Xunit;
-using CognitiveGraph.Core;
-using CognitiveGraph.Core.Builder;
-using CognitiveGraph.Core.Schema;
+using CognitiveGraph;
+using CognitiveGraph.Builder;
+using CognitiveGraph.Schema;
 using System.Collections.Generic;
 
 namespace CognitiveGraph.Tests;
@@ -35,7 +35,7 @@ public class CognitiveGraphAdvancedTests
         var buffer = builder.Build(callNodeOffset, "foo(x)");
 
         // Act
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
         var rootNode = graph.GetRootNode();
 
         // Assert
@@ -74,7 +74,7 @@ public class CognitiveGraphAdvancedTests
         var buffer = builder.Build(nodeOffset, "test");
 
         // Act
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
         var rootNode = graph.GetRootNode();
 
         // Assert
@@ -111,7 +111,7 @@ public class CognitiveGraphAdvancedTests
         var buffer = builder.Build(ambiguousNodeOffset, "a+b*c");
 
         // Act
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
         var rootNode = graph.GetRootNode();
 
         // Assert
@@ -134,7 +134,7 @@ public class CognitiveGraphAdvancedTests
         var buffer = builder.Build(nodeOffset, "test");
 
         // Act
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
         var rootNode = graph.GetRootNode();
 
         // Assert

@@ -1,7 +1,7 @@
 using Xunit;
-using CognitiveGraph.Core;
-using CognitiveGraph.Core.Builder;
-using CognitiveGraph.Core.Schema;
+using CognitiveGraph;
+using CognitiveGraph.Builder;
+using CognitiveGraph.Schema;
 using System.Linq;
 
 namespace CognitiveGraph.Tests;
@@ -38,7 +38,7 @@ public class CognitiveGraphComprehensiveTests
         var buffer = builder.Build(rootNodeOffset, sourceText);
         
         // Act & Assert
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
         var stats = graph.GetStatistics();
         
         // We have one node but with many properties
@@ -81,7 +81,7 @@ public class CognitiveGraphComprehensiveTests
         var buffer = builder.Build(ambiguousExpressionOffset, "a+b*c");
         
         // Act
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
         var rootNode = graph.GetRootNode();
         
         // Assert
@@ -126,7 +126,7 @@ public class CognitiveGraphComprehensiveTests
         var buffer = builder.Build(callNodeOffset, "func()");
         
         // Act
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
         var rootNode = graph.GetRootNode();
         
         // Assert
@@ -158,10 +158,10 @@ public class CognitiveGraphComprehensiveTests
         var buffer = builder.Build(nodeOffset, "test");
         
         // Act - Create multiple graph instances from the same buffer
-        using var graph1 = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph1 = new CognitiveGraph(buffer);
         var bufferCopy = new byte[buffer.AsSpan().Length];
         buffer.AsSpan().CopyTo(bufferCopy);
-        using var graph2 = CognitiveGraph.Core.CognitiveGraph.FromBytes(bufferCopy);
+        using var graph2 = CognitiveGraph.FromBytes(bufferCopy);
         
         // Assert - Both instances should read the same data
         Assert.Equal(graph1.GetSourceText(), graph2.GetSourceText());
@@ -197,7 +197,7 @@ public class CognitiveGraphComprehensiveTests
         var buffer = builder.Build(nodeOffset, "test");
         
         // Act
-        using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+        using var graph = new CognitiveGraph(buffer);
         var rootNode = graph.GetRootNode();
         
         // Assert
@@ -241,7 +241,7 @@ public class CognitiveGraphComprehensiveTests
             {
                 try
                 {
-                    using var graph = new CognitiveGraph.Core.CognitiveGraph(buffer);
+                    using var graph = new CognitiveGraph(buffer);
                     var sourceText = graph.GetSourceText();
                     var rootNode = graph.GetRootNode();
                     var stats = graph.GetStatistics();

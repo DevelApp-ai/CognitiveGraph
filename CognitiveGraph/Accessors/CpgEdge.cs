@@ -1,9 +1,9 @@
 using System;
 using System.Runtime.InteropServices;
-using CognitiveGraph.Core.Buffer;
-using CognitiveGraph.Core.Schema;
+using CognitiveGraph.Buffer;
+using CognitiveGraph.Schema;
 
-namespace CognitiveGraph.Core.Accessors;
+namespace CognitiveGraph.Accessors;
 
 /// <summary>
 /// Zero-allocation accessor for CPG edges

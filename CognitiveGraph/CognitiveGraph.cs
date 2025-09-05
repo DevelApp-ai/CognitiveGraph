@@ -1,9 +1,9 @@
 using System;
-using CognitiveGraph.Core.Accessors;
-using CognitiveGraph.Core.Buffer;
-using CognitiveGraph.Core.Schema;
+using CognitiveGraph.Accessors;
+using CognitiveGraph.Buffer;
+using CognitiveGraph.Schema;
 
-namespace CognitiveGraph.Core;
+namespace CognitiveGraph;
 
 /// <summary>
 /// Main entry point for the Cognitive Graph API.

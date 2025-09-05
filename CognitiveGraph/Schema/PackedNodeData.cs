@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace CognitiveGraph.Core.Schema;
+namespace CognitiveGraph.Schema;
 
 /// <summary>
 /// Binary layout for a Packed Node in the SPPF.

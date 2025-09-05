@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  DOTNET_VERSION: '8.0.x'
+
 jobs:
   test:
     name: Test on ${{ matrix.os }}
@@ -13,7 +16,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        dotnet-version: ['8.0.x']
     
     steps:
     - uses: actions/checkout@v4
@@ -21,7 +23,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: ${{ matrix.dotnet-version }}
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     
     - name: Restore dependencies
       run: dotnet restore
@@ -46,35 +48,6 @@ jobs:
         files: TestResults/*/coverage.cobertura.xml
         fail_ci_if_error: false
 
-  package:
-    name: Create NuGet Package
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
-    
-    - name: Restore dependencies
-      run: dotnet restore
-    
-    - name: Build Release
-      run: dotnet build --configuration Release --no-restore
-    
-    - name: Create NuGet Package
-      run: dotnet pack CognitiveGraph.Core/CognitiveGraph.Core.csproj --configuration Release --no-build --output nupkgs/
-    
-    - name: Upload NuGet Package
-      uses: actions/upload-artifact@v4
-      with:
-        name: nuget-package
-        path: nupkgs/*.nupkg
-
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -85,7 +58,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x'
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     
     - name: Restore dependencies
       run: dotnet restore
@@ -94,3 +67,91 @@ jobs:
       run: |
         dotnet list package --vulnerable --include-transitive || true
         dotnet list package --deprecated --include-transitive || true
+
+  package:
+    name: Create NuGet Package
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Determine Version
+      id: version
+      run: |
+        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          echo "version=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "suffix=" >> $GITHUB_OUTPUT
+        else
+          echo "version=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "suffix=-alpha.${{ github.run_number }}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build Release
+      run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.version.outputs.version }}${{ steps.version.outputs.suffix }}
+    
+    - name: Create NuGet Package
+      run: dotnet pack CognitiveGraph/CognitiveGraph.csproj --configuration Release --no-build --output nupkgs/ -p:PackageVersion=${{ steps.version.outputs.version }}${{ steps.version.outputs.suffix }}
+    
+    - name: Upload NuGet Package
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-package
+        path: nupkgs/*.nupkg
+
+  publish-prerelease:
+    name: Publish Prerelease to GitHub Packages
+    runs-on: ubuntu-latest
+    needs: package
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Download NuGet Package
+      uses: actions/download-artifact@v4
+      with:
+        name: nuget-package
+        path: nupkgs/
+    
+    - name: Publish to GitHub Packages
+      run: |
+        dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+        dotnet nuget push nupkgs/*.nupkg --source "github" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+
+  publish-release:
+    name: Publish Release to NuGet.org
+    runs-on: ubuntu-latest
+    needs: package
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Download NuGet Package
+      uses: actions/download-artifact@v4
+      with:
+        name: nuget-package
+        path: nupkgs/
+    
+    - name: Publish to NuGet.org
+      run: dotnet nuget push nupkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate

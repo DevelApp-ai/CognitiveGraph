@@ -15,7 +15,7 @@
     <Description>Zero-copy Cognitive Graph for advanced code analysis. Unifies syntactic ambiguity handling (SPPF) with semantic analysis (CPG) in a high-performance, memory-efficient data structure.</Description>
     <PackageTags>parsing;AST;CPG;SPPF;code-analysis;static-analysis;zero-copy</PackageTags>
     <PackageProjectUrl>https://github.com/DevelApp-ai/CognitiveGraph</PackageProjectUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <RepositoryUrl>https://github.com/DevelApp-ai/CognitiveGraph</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

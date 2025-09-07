@@ -132,7 +132,7 @@ if (node.TryGetProperty("LineNumber", out var lineNum))
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the AGPL 3.0 License - see the [LICENSE](https://github.com/DevelApp-ai/CognitiveGraph/blob/main/LICENSE) file for details.
 
 ## Contributing
 

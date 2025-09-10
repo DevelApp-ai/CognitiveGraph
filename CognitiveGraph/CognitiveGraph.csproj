@@ -9,7 +9,7 @@
     <!-- NuGet Package Properties -->
     <PackageId>DevelApp.CognitiveGraph</PackageId>
     <Authors>DevelApp-ai</Authors>
-    <Company>DevelApp-ai</Company>
+    <Company>DevelApp</Company>
     <Product>Cognitive Graph</Product>
     <Description>Zero-copy Cognitive Graph for advanced code analysis. Unifies syntactic ambiguity handling (SPPF) with semantic analysis (CPG) in a high-performance, memory-efficient data structure.</Description>
     <PackageTags>parsing;AST;CPG;SPPF;code-analysis;static-analysis;zero-copy</PackageTags>

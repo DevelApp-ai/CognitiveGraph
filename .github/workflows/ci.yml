@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: write
+  packages: write
+  pull-requests: read
+
 env:
   DOTNET_VERSION: '8.0.x'
   GITVERSION_VERSION: '5.12.0'
@@ -179,17 +184,80 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Required for GitVersion and tagging
     
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v0
+      with:
+        versionSpec: ${{ env.GITVERSION_VERSION }}
+    
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v0
+      with:
+        useConfigFile: true
+      continue-on-error: true
+    
+    - name: Fallback Version (if GitVersion fails)
+      id: fallback-version
+      if: steps.gitversion.outcome == 'failure'
+      run: |
+        echo "nuGetVersionV2=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+        echo "semVer=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+    
+    - name: Set Final Version
+      id: version
+      run: |
+        if [ "${{ steps.gitversion.outcome }}" = "success" ]; then
+          echo "nuGetVersionV2=${{ steps.gitversion.outputs.nuGetVersionV2 }}" >> $GITHUB_OUTPUT
+          echo "semVer=${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_OUTPUT
+        else
+          echo "nuGetVersionV2=${{ steps.fallback-version.outputs.nuGetVersionV2 }}" >> $GITHUB_OUTPUT
+          echo "semVer=${{ steps.fallback-version.outputs.semVer }}" >> $GITHUB_OUTPUT
+        fi
+    
     - name: Download NuGet Package
       uses: actions/download-artifact@v4
       with:
         name: nuget-package
         path: nupkgs/
+    
+    - name: Create Release Tag
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a "v${{ steps.version.outputs.semVer }}" -m "Release v${{ steps.version.outputs.semVer }}"
+        git push origin "v${{ steps.version.outputs.semVer }}"
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.version.outputs.semVer }}
+        name: Release v${{ steps.version.outputs.semVer }}
+        body: |
+          ## Release v${{ steps.version.outputs.semVer }}
+          
+          ### NuGet Package
+          - **Package**: DevelApp.CognitiveGraph
+          - **Version**: ${{ steps.version.outputs.semVer }}
+          - **Available on**: [NuGet.org](https://www.nuget.org/packages/DevelApp.CognitiveGraph/${{ steps.version.outputs.semVer }}) and [GitHub Packages](https://github.com/DevelApp-ai/CognitiveGraph/packages)
+          
+          ### Installation
+          ```bash
+          dotnet add package DevelApp.CognitiveGraph --version ${{ steps.version.outputs.semVer }}
+          ```
+        draft: false
+        prerelease: false
+        files: |
+          nupkgs/DevelApp.CognitiveGraph.${{ steps.version.outputs.semVer }}.nupkg
     
     - name: Publish to GitHub Packages
       run: |

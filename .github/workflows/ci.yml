@@ -14,6 +14,9 @@ permissions:
 env:
   DOTNET_VERSION: '8.0.x'
   GITVERSION_VERSION: '5.12.0'
+  # Optional: Use a Personal Access Token if GITHUB_TOKEN doesn't work
+  # Uncomment the line below and create a secret named GITHUB_PAT with write:packages permission
+  # PUBLISH_TOKEN: ${{ secrets.GITHUB_PAT || secrets.GITHUB_TOKEN }}
 
 jobs:
   test:
@@ -171,10 +174,45 @@ jobs:
         name: nuget-package
         path: nupkgs/
     
+    - name: Debug GitHub Context
+      run: |
+        echo "Repository owner: ${{ github.repository_owner }}"
+        echo "Repository: ${{ github.repository }}"
+        echo "Actor: ${{ github.actor }}"
+        echo "Token length: ${#GITHUB_TOKEN}"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
     - name: Publish to GitHub Packages
       run: |
-        dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-        dotnet nuget push nupkgs/*.nupkg --source "github" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+        # Try multiple authentication approaches for GitHub Packages
+        echo "Attempting to publish to GitHub Packages..."
+        
+        # Method 1: Using github.actor (recommended for organization repos)
+        if dotnet nuget add source --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text --name github "https://nuget.pkg.github.com/DevelApp-ai/index.json" 2>/dev/null; then
+          echo "✓ NuGet source added successfully with github.actor"
+        else
+          echo "⚠ Failed to add NuGet source with github.actor, trying alternative..."
+          # Method 2: Using repository_owner as fallback
+          dotnet nuget add source --username "${{ github.repository_owner }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text --name github "https://nuget.pkg.github.com/DevelApp-ai/index.json"
+        fi
+        
+        # Attempt to push the package
+        if dotnet nuget push nupkgs/*.nupkg --source "github" --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate; then
+          echo "✓ Package published successfully to GitHub Packages"
+        else
+          echo "❌ Failed to publish to GitHub Packages"
+          echo "This might be due to:"
+          echo "1. GITHUB_TOKEN lacks 'packages: write' permission"
+          echo "2. Organization security settings blocking package publishing"
+          echo "3. Repository settings not allowing GitHub Packages"
+          echo ""
+          echo "To resolve, consider:"
+          echo "1. Use a Personal Access Token with 'write:packages' scope"
+          echo "2. Check organization package publishing settings"  
+          echo "3. Verify repository has GitHub Packages enabled"
+          exit 1
+        fi
 
   publish-release:
     name: Publish Release to GitHub and NuGet.org
@@ -259,10 +297,46 @@ jobs:
         files: |
           nupkgs/DevelApp.CognitiveGraph.${{ steps.version.outputs.semVer }}.nupkg
     
+    - name: Debug GitHub Context
+      run: |
+        echo "Repository owner: ${{ github.repository_owner }}"
+        echo "Repository: ${{ github.repository }}"
+        echo "Actor: ${{ github.actor }}"
+        echo "Token length: ${#GITHUB_TOKEN}"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
     - name: Publish to GitHub Packages
       run: |
-        dotnet nuget add source --username ${{ github.repository_owner }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-        dotnet nuget push nupkgs/*.nupkg --source "github" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+        # Try multiple authentication approaches for GitHub Packages
+        echo "Attempting to publish to GitHub Packages..."
+        
+        # Method 1: Using github.actor (recommended for organization repos)
+        if dotnet nuget add source --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text --name github "https://nuget.pkg.github.com/DevelApp-ai/index.json" 2>/dev/null; then
+          echo "✓ NuGet source added successfully with github.actor"
+        else
+          echo "⚠ Failed to add NuGet source with github.actor, trying alternative..."
+          # Method 2: Using repository_owner as fallback
+          dotnet nuget add source --username "${{ github.repository_owner }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text --name github "https://nuget.pkg.github.com/DevelApp-ai/index.json"
+        fi
+        
+        # Attempt to push the package
+        if dotnet nuget push nupkgs/*.nupkg --source "github" --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate; then
+          echo "✓ Package published successfully to GitHub Packages"
+        else
+          echo "❌ Failed to publish to GitHub Packages"
+          echo "This might be due to:"
+          echo "1. GITHUB_TOKEN lacks 'packages: write' permission"
+          echo "2. Organization security settings blocking package publishing"
+          echo "3. Repository settings not allowing GitHub Packages"
+          echo ""
+          echo "To resolve, consider:"
+          echo "1. Use a Personal Access Token with 'write:packages' scope in secrets"
+          echo "2. Check organization package publishing settings"
+          echo "3. Verify repository has GitHub Packages enabled"
+          echo "4. Contact repository administrator for token permissions"
+          exit 1
+        fi
     
     - name: Publish to NuGet.org
       run: dotnet nuget push nupkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate

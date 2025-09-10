@@ -221,6 +221,68 @@ public void CrossPlatformTest()
    <PackageReference Include="DevelApp.CognitiveGraph" Version="1.0.0" />
    ```
 
+#### GitHub Packages Authentication Issues
+
+**Problem**: Access denied error when publishing to GitHub Packages
+```
+error: Response status code does not indicate success: 401 (Unauthorized)
+```
+
+**Root Cause**: This typically occurs when:
+1. The `GITHUB_TOKEN` lacks `packages: write` permission
+2. Organization security settings block package publishing
+3. Repository doesn't have GitHub Packages enabled
+
+**Solutions**:
+
+1. **Use Personal Access Token** (Recommended for organization repos):
+   ```yaml
+   # In your repository secrets, create GITHUB_PAT with these permissions:
+   # - write:packages
+   # - read:packages
+   # Then update the workflow to use it:
+   - name: Publish to GitHub Packages
+     run: |
+       dotnet nuget add source --username "${{ github.actor }}" \
+         --password "${{ secrets.GITHUB_PAT }}" \
+         --store-password-in-clear-text --name github \
+         "https://nuget.pkg.github.com/DevelApp-ai/index.json"
+   ```
+
+2. **Check Organization Settings**:
+   - Go to Organization → Settings → Package settings
+   - Ensure "Package creation" is enabled
+   - Check if "Restrict package visibility" is blocking internal packages
+
+3. **Verify Repository Package Settings**:
+   - Repository → Settings → General → Features
+   - Ensure "Packages" is enabled
+
+4. **Alternative Authentication Methods**:
+   ```bash
+   # Method 1: Using github.actor (works for most cases)
+   dotnet nuget add source --username "${{ github.actor }}" \
+     --password "${{ secrets.GITHUB_TOKEN }}" \
+     --store-password-in-clear-text --name github \
+     "https://nuget.pkg.github.com/DevelApp-ai/index.json"
+   
+   # Method 2: Using repository_owner (fallback)
+   dotnet nuget add source --username "${{ github.repository_owner }}" \
+     --password "${{ secrets.GITHUB_TOKEN }}" \
+     --store-password-in-clear-text --name github \
+     "https://nuget.pkg.github.com/DevelApp-ai/index.json"
+   ```
+
+5. **Debug GitHub Context**:
+   ```yaml
+   - name: Debug GitHub Context
+     run: |
+       echo "Repository owner: ${{ github.repository_owner }}"
+       echo "Repository: ${{ github.repository }}"
+       echo "Actor: ${{ github.actor }}"
+       echo "Token permissions: Check if packages:write is granted"
+   ```
+
 #### Dependency Conflicts
 
 **Problem**: Version conflicts with other packages

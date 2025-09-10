@@ -218,7 +218,7 @@ public void CrossPlatformTest()
 
 2. **Explicit Version References**:
    ```xml
-   <PackageReference Include="CognitiveGraph.Core" Version="1.0.0" />
+   <PackageReference Include="DevelApp.CognitiveGraph" Version="1.0.0" />
    ```
 
 #### Dependency Conflicts
@@ -227,7 +227,7 @@ public void CrossPlatformTest()
 
 **Solution**: Use binding redirects or update to compatible versions:
 ```xml
-<PackageReference Include="CognitiveGraph.Core" Version="1.0.0">
+<PackageReference Include="DevelApp.CognitiveGraph" Version="1.0.0">
   <ExcludeAssets>runtime</ExcludeAssets>
 </PackageReference>
 ```

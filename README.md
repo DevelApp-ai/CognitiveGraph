@@ -3,7 +3,7 @@
 **High-Performance Zero-Copy Cognitive Graph for Advanced Code Analysis**
 
 [![CI/CD Pipeline](https://github.com/DevelApp-ai/CognitiveGraph/actions/workflows/ci.yml/badge.svg)](https://github.com/DevelApp-ai/CognitiveGraph/actions/workflows/ci.yml)
-[![NuGet Package](https://img.shields.io/nuget/v/CognitiveGraph.Core)](https://www.nuget.org/packages/CognitiveGraph.Core/)
+[![NuGet Package](https://img.shields.io/nuget/v/DevelApp.CognitiveGraph)](https://www.nuget.org/packages/DevelApp.CognitiveGraph/)
 [![Platform Support](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-blue)](#platform-compatibility)
 
 A revolutionary approach to code analysis that unifies syntactic ambiguity handling with semantic analysis through a zero-copy memory architecture. Built for .NET 8, it addresses limitations of traditional AST-based approaches by combining Shared Packed Parse Forest (SPPF) and Code Property Graph (CPG) technologies.
@@ -31,15 +31,15 @@ A revolutionary approach to code analysis that unifies syntactic ambiguity handl
 ## 📦 Installation
 
 ```bash
-dotnet add package CognitiveGraph.Core
+dotnet add package DevelApp.CognitiveGraph
 ```
 
 ## 🔧 Quick Start
 
 ```csharp
-using CognitiveGraph.Core;
-using CognitiveGraph.Core.Builder;
-using CognitiveGraph.Core.Schema;
+using DevelApp.CognitiveGraph;
+using DevelApp.CognitiveGraph.Builder;
+using DevelApp.CognitiveGraph.Schema;
 
 // Create a graph for a simple expression
 using var builder = new CognitiveGraphBuilder();
@@ -189,7 +189,7 @@ dotnet test --filter "Category=Performance"
 
 ### Create NuGet Package
 ```bash
-dotnet pack CognitiveGraph.Core/CognitiveGraph.Core.csproj --configuration Release
+dotnet pack CognitiveGraph/CognitiveGraph.csproj --configuration Release
 ```
 
 ## 📊 Performance Characteristics
@@ -221,7 +221,7 @@ dotnet pack CognitiveGraph.Core/CognitiveGraph.Core.csproj --configuration Relea
 - **[Platform Compatibility Guide](docs/PLATFORM_COMPATIBILITY.md)** - Detailed platform support information
 - **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 - **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation
-- **[Examples](CognitiveGraph.Core/Examples/)** - Sample code and use cases
+- **[Examples](CognitiveGraph/Examples/)** - Sample code and use cases
 
 ## 🤝 Contributing
 

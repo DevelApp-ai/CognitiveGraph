@@ -16,9 +16,14 @@
     <PackageProjectUrl>https://github.com/DevelApp-ai/CognitiveGraph</PackageProjectUrl>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>PACKAGE_README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/DevelApp-ai/CognitiveGraph</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../PACKAGE_README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
 
 </Project>

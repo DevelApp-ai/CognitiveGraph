@@ -95,50 +95,50 @@ jobs:
       uses: gittools/actions/gitversion/execute@v0
       with:
         useConfigFile: true
+      continue-on-error: true
     
-    - name: Display GitVersion outputs
+    - name: Fallback Version (if GitVersion fails)
+      id: fallback-version
+      if: steps.gitversion.outcome == 'failure'
       run: |
-        echo "Major: ${{ steps.gitversion.outputs.major }}"
-        echo "Minor: ${{ steps.gitversion.outputs.minor }}"
-        echo "Patch: ${{ steps.gitversion.outputs.patch }}"
-        echo "PreReleaseTag: ${{ steps.gitversion.outputs.preReleaseTag }}"
-        echo "PreReleaseTagWithDash: ${{ steps.gitversion.outputs.preReleaseTagWithDash }}"
-        echo "PreReleaseLabel: ${{ steps.gitversion.outputs.preReleaseLabel }}"
-        echo "PreReleaseNumber: ${{ steps.gitversion.outputs.preReleaseNumber }}"
-        echo "WeightedPreReleaseNumber: ${{ steps.gitversion.outputs.weightedPreReleaseNumber }}"
-        echo "BuildMetaData: ${{ steps.gitversion.outputs.buildMetaData }}"
-        echo "BuildMetaDataPadded: ${{ steps.gitversion.outputs.buildMetaDataPadded }}"
-        echo "FullBuildMetaData: ${{ steps.gitversion.outputs.fullBuildMetaData }}"
-        echo "MajorMinorPatch: ${{ steps.gitversion.outputs.majorMinorPatch }}"
-        echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
-        echo "LegacySemVer: ${{ steps.gitversion.outputs.legacySemVer }}"
-        echo "LegacySemVerPadded: ${{ steps.gitversion.outputs.legacySemVerPadded }}"
-        echo "AssemblySemVer: ${{ steps.gitversion.outputs.assemblySemVer }}"
-        echo "AssemblySemFileVer: ${{ steps.gitversion.outputs.assemblySemFileVer }}"
-        echo "FullSemVer: ${{ steps.gitversion.outputs.fullSemVer }}"
-        echo "InformationalVersion: ${{ steps.gitversion.outputs.informationalVersion }}"
-        echo "BranchName: ${{ steps.gitversion.outputs.branchName }}"
-        echo "EscapedBranchName: ${{ steps.gitversion.outputs.escapedBranchName }}"
-        echo "Sha: ${{ steps.gitversion.outputs.sha }}"
-        echo "ShortSha: ${{ steps.gitversion.outputs.shortSha }}"
-        echo "NuGetVersionV2: ${{ steps.gitversion.outputs.nuGetVersionV2 }}"
-        echo "NuGetVersion: ${{ steps.gitversion.outputs.nuGetVersion }}"
-        echo "NuGetPreReleaseTagV2: ${{ steps.gitversion.outputs.nuGetPreReleaseTagV2 }}"
-        echo "NuGetPreReleaseTag: ${{ steps.gitversion.outputs.nuGetPreReleaseTag }}"
-        echo "VersionSourceSha: ${{ steps.gitversion.outputs.versionSourceSha }}"
-        echo "CommitsSinceVersionSource: ${{ steps.gitversion.outputs.commitsSinceVersionSource }}"
-        echo "CommitsSinceVersionSourcePadded: ${{ steps.gitversion.outputs.commitsSinceVersionSourcePadded }}"
-        echo "UncommittedChanges: ${{ steps.gitversion.outputs.uncommittedChanges }}"
-        echo "CommitDate: ${{ steps.gitversion.outputs.commitDate }}"
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "nuGetVersionV2=1.0.0-pr.${{ github.event.number }}" >> $GITHUB_OUTPUT
+          echo "semVer=1.0.0-pr.${{ github.event.number }}" >> $GITHUB_OUTPUT
+        elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          echo "nuGetVersionV2=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "semVer=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+        elif [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+          echo "nuGetVersionV2=1.0.${{ github.run_number }}-alpha" >> $GITHUB_OUTPUT
+          echo "semVer=1.0.${{ github.run_number }}-alpha" >> $GITHUB_OUTPUT
+        else
+          echo "nuGetVersionV2=1.0.${{ github.run_number }}-feature" >> $GITHUB_OUTPUT
+          echo "semVer=1.0.${{ github.run_number }}-feature" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Set Final Version
+      id: version
+      run: |
+        if [ "${{ steps.gitversion.outcome }}" = "success" ]; then
+          echo "nuGetVersionV2=${{ steps.gitversion.outputs.nuGetVersionV2 }}" >> $GITHUB_OUTPUT
+          echo "semVer=${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_OUTPUT
+        else
+          echo "nuGetVersionV2=${{ steps.fallback-version.outputs.nuGetVersionV2 }}" >> $GITHUB_OUTPUT
+          echo "semVer=${{ steps.fallback-version.outputs.semVer }}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Display Version Information
+      run: |
+        echo "Final Version: ${{ steps.version.outputs.nuGetVersionV2 }}"
+        echo "SemVer: ${{ steps.version.outputs.semVer }}"
     
     - name: Restore dependencies
       run: dotnet restore
     
     - name: Build Release
-      run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.gitversion.outputs.nuGetVersionV2 }}
+      run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.version.outputs.nuGetVersionV2 }}
     
     - name: Create NuGet Package
-      run: dotnet pack CognitiveGraph/CognitiveGraph.csproj --configuration Release --no-build --output nupkgs/ -p:PackageVersion=${{ steps.gitversion.outputs.nuGetVersionV2 }}
+      run: dotnet pack CognitiveGraph/CognitiveGraph.csproj --configuration Release --no-build --output nupkgs/ -p:PackageVersion=${{ steps.version.outputs.nuGetVersionV2 }}
     
     - name: Upload NuGet Package
       uses: actions/upload-artifact@v4

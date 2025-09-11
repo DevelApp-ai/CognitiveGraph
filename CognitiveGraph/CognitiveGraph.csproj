@@ -8,18 +8,22 @@
     
     <!-- NuGet Package Properties -->
     <PackageId>DevelApp.CognitiveGraph</PackageId>
-    <Version>1.0.0</Version>
     <Authors>DevelApp-ai</Authors>
-    <Company>DevelApp-ai</Company>
+    <Company>DevelApp</Company>
     <Product>Cognitive Graph</Product>
     <Description>Zero-copy Cognitive Graph for advanced code analysis. Unifies syntactic ambiguity handling (SPPF) with semantic analysis (CPG) in a high-performance, memory-efficient data structure.</Description>
     <PackageTags>parsing;AST;CPG;SPPF;code-analysis;static-analysis;zero-copy</PackageTags>
     <PackageProjectUrl>https://github.com/DevelApp-ai/CognitiveGraph</PackageProjectUrl>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>PACKAGE_README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/DevelApp-ai/CognitiveGraph</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../PACKAGE_README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
 
 </Project>

@@ -2,7 +2,7 @@
 
 ## Supported Platforms
 
-The CognitiveGraph.Core library is designed to work on all platforms supported by .NET 8, with specific considerations for the zero-copy memory architecture.
+The DevelApp.CognitiveGraph library is designed to work on all platforms supported by .NET 8, with specific considerations for the zero-copy memory architecture.
 
 ### Primary Supported Platforms
 

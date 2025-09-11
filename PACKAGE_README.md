@@ -16,15 +16,15 @@ A high-performance C# library implementing the Zero-Copy Cognitive Graph archite
 ### Installation
 
 ```bash
-dotnet add package CognitiveGraph.Core
+dotnet add package DevelApp.CognitiveGraph
 ```
 
 ### Basic Usage
 
 ```csharp
-using CognitiveGraph.Core;
-using CognitiveGraph.Core.Builder;
-using CognitiveGraph.Core.Schema;
+using DevelApp.CognitiveGraph;
+using DevelApp.CognitiveGraph.Builder;
+using DevelApp.CognitiveGraph.Schema;
 
 // Create a graph for source code
 using var builder = new CognitiveGraphBuilder();

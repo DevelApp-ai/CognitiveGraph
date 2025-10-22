@@ -18,12 +18,15 @@
 
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.MemoryMappedFiles;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using CognitiveGraph.Accessors;
 using CognitiveGraph.Buffer;
 using CognitiveGraph.Schema;
+using CognitiveGraph.QueryEngine;
 
 namespace CognitiveGraph;
 
@@ -51,10 +54,7 @@ public sealed class CognitiveGraph : IDisposable
             throw new ArgumentException("Buffer does not contain a valid Cognitive Graph", nameof(buffer));
         
         _header = _buffer.GetHeader();
-        _cache = new MemoryCache(new MemoryCacheOptions
-        {
-            SizeLimit = 1000 // Cache up to 1000 items
-        });
+        _cache = new MemoryCache(new MemoryCacheOptions());
     }
 
     /// <summary>
@@ -71,7 +71,7 @@ public sealed class CognitiveGraph : IDisposable
         try
         {
             // Create memory-mapped file
-            _mmf = MemoryMappedFile.CreateFromFile(filePath, FileMode.Open, "CognitiveGraph", 0, MemoryMappedFileAccess.Read);
+            _mmf = MemoryMappedFile.CreateFromFile(filePath, FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
             _accessor = _mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
             
             // Create buffer over memory-mapped data
@@ -87,10 +87,7 @@ public sealed class CognitiveGraph : IDisposable
                 throw new ArgumentException($"File does not contain a valid Cognitive Graph: {filePath}");
             
             _header = _buffer.GetHeader();
-            _cache = new MemoryCache(new MemoryCacheOptions
-            {
-                SizeLimit = 1000 // Cache up to 1000 items for disk-backed graphs
-            });
+            _cache = new MemoryCache(new MemoryCacheOptions());
         }
         catch
         {
@@ -213,6 +210,26 @@ public sealed class CognitiveGraph : IDisposable
             var node = GetNodeAt(offset);
             nodeProcessor(in node);
         }
+    }
+
+    /// <summary>
+    /// Executes a GraphQL query against the graph and returns matching node offsets
+    /// </summary>
+    public async Task<List<uint>> QueryAsync(string graphQLQuery)
+    {
+        if (string.IsNullOrWhiteSpace(graphQLQuery))
+            return new List<uint>();
+
+        var queryEngine = new GraphQLQueryEngine(this);
+        return await queryEngine.ExecuteQueryAsync(graphQLQuery);
+    }
+
+    /// <summary>
+    /// Synchronous version of Query for simpler usage
+    /// </summary>
+    public List<uint> Query(string graphQLQuery)
+    {
+        return QueryAsync(graphQLQuery).GetAwaiter().GetResult();
     }
 
     /// <summary>

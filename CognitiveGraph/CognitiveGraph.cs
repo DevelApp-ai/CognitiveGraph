@@ -18,6 +18,9 @@
 
 
 using System;
+using System.IO;
+using System.IO.MemoryMappedFiles;
+using Microsoft.Extensions.Caching.Memory;
 using CognitiveGraph.Accessors;
 using CognitiveGraph.Buffer;
 using CognitiveGraph.Schema;
@@ -32,6 +35,9 @@ public sealed class CognitiveGraph : IDisposable
 {
     private readonly CognitiveGraphBuffer _buffer;
     private readonly GraphHeader _header;
+    private readonly MemoryMappedFile? _mmf;
+    private readonly MemoryMappedViewAccessor? _accessor;
+    private readonly IMemoryCache _cache;
     private bool _disposed;
 
     /// <summary>
@@ -45,6 +51,53 @@ public sealed class CognitiveGraph : IDisposable
             throw new ArgumentException("Buffer does not contain a valid Cognitive Graph", nameof(buffer));
         
         _header = _buffer.GetHeader();
+        _cache = new MemoryCache(new MemoryCacheOptions
+        {
+            SizeLimit = 1000 // Cache up to 1000 items
+        });
+    }
+
+    /// <summary>
+    /// Creates a Cognitive Graph from a memory-mapped file for large-scale persistence
+    /// </summary>
+    public CognitiveGraph(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            throw new ArgumentException("File path cannot be null or empty", nameof(filePath));
+        
+        if (!File.Exists(filePath))
+            throw new FileNotFoundException($"Graph file not found: {filePath}");
+
+        try
+        {
+            // Create memory-mapped file
+            _mmf = MemoryMappedFile.CreateFromFile(filePath, FileMode.Open, "CognitiveGraph", 0, MemoryMappedFileAccess.Read);
+            _accessor = _mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
+            
+            // Create buffer over memory-mapped data
+            unsafe
+            {
+                var ptr = (byte*)_accessor.SafeMemoryMappedViewHandle.DangerousGetHandle();
+                var length = new FileInfo(filePath).Length;
+                var span = new ReadOnlySpan<byte>(ptr, (int)length);
+                _buffer = new CognitiveGraphBuffer(span.ToArray(), takeOwnership: false);
+            }
+            
+            if (!_buffer.IsValidGraph())
+                throw new ArgumentException($"File does not contain a valid Cognitive Graph: {filePath}");
+            
+            _header = _buffer.GetHeader();
+            _cache = new MemoryCache(new MemoryCacheOptions
+            {
+                SizeLimit = 1000 // Cache up to 1000 items for disk-backed graphs
+            });
+        }
+        catch
+        {
+            _accessor?.Dispose();
+            _mmf?.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -113,6 +166,56 @@ public sealed class CognitiveGraph : IDisposable
     }
 
     /// <summary>
+    /// Finds all node offsets that contain the specified byte offset using the spatial index
+    /// </summary>
+    public List<uint> FindNodesAt(uint byteOffset)
+    {
+        if (_header.IntervalTreeOffset == 0)
+        {
+            // No spatial index available, return empty list
+            return new List<uint>();
+        }
+
+        // Try to get from cache first
+        var cacheKey = $"spatial_{byteOffset}";
+        if (_cache.TryGetValue(cacheKey, out object? cachedObj) && cachedObj is List<uint> cachedResult)
+        {
+            return cachedResult;
+        }
+
+        // Load interval tree from buffer
+        var treeStart = (int)_header.IntervalTreeOffset;
+        var remainingBuffer = _buffer.Slice(treeStart);
+        var intervalTree = IntervalTree.Deserialize(remainingBuffer);
+        
+        // Find node offsets at the specified location
+        var result = intervalTree.FindNodesAt(byteOffset);
+        
+        // Cache the result
+        _cache.Set(cacheKey, result, TimeSpan.FromMinutes(2));
+        
+        return result;
+    }
+
+    /// <summary>
+    /// Delegate for processing symbol nodes (works with ref structs)
+    /// </summary>
+    public delegate void NodeProcessor(in SymbolNode node);
+
+    /// <summary>
+    /// Gets symbol nodes at the specified byte offset using the spatial index
+    /// </summary>
+    public void ProcessNodesAt(uint byteOffset, NodeProcessor nodeProcessor)
+    {
+        var offsets = FindNodesAt(byteOffset);
+        foreach (var offset in offsets)
+        {
+            var node = GetNodeAt(offset);
+            nodeProcessor(in node);
+        }
+    }
+
+    /// <summary>
     /// Gets the underlying buffer (for advanced scenarios)
     /// </summary>
     internal CognitiveGraphBuffer GetBuffer() => _buffer;
@@ -121,7 +224,10 @@ public sealed class CognitiveGraph : IDisposable
     {
         if (!_disposed)
         {
+            _cache?.Dispose();
             _buffer?.Dispose();
+            _accessor?.Dispose();
+            _mmf?.Dispose();
             _disposed = true;
         }
     }

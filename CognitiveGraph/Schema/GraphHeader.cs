@@ -23,7 +23,7 @@ namespace CognitiveGraph.Schema;
 
 /// <summary>
 /// Binary layout for the graph header at the start of the buffer.
-/// Total size: 32 bytes
+/// Total size: 40 bytes
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct GraphHeader
@@ -67,9 +67,14 @@ public readonly struct GraphHeader
     /// Offset to the start of the source text copy in the buffer
     /// </summary>
     public readonly uint SourceTextOffset;
+    
+    /// <summary>
+    /// Offset to the interval tree index for spatial queries
+    /// </summary>
+    public readonly uint IntervalTreeOffset;
 
     public GraphHeader(uint magicNumber, ushort version, ushort flags, uint rootNodeOffset,
-        uint nodeCount, uint edgeCount, uint sourceTextLength, uint sourceTextOffset)
+        uint nodeCount, uint edgeCount, uint sourceTextLength, uint sourceTextOffset, uint intervalTreeOffset = 0)
     {
         MagicNumber = magicNumber;
         Version = version;
@@ -79,6 +84,7 @@ public readonly struct GraphHeader
         EdgeCount = edgeCount;
         SourceTextLength = sourceTextLength;
         SourceTextOffset = sourceTextOffset;
+        IntervalTreeOffset = intervalTreeOffset;
     }
 
     /// <summary>
@@ -94,5 +100,5 @@ public readonly struct GraphHeader
     /// <summary>
     /// Size of the header in bytes
     /// </summary>
-    public const int SIZE = 32;
+    public const int SIZE = 40;
 }

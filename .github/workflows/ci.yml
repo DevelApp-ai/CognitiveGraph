@@ -110,8 +110,8 @@ jobs:
       if: steps.gitversion.outcome == 'failure'
       run: |
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "nuGetVersionV2=1.0.0-pr.${{ github.event.number }}" >> $GITHUB_OUTPUT
-          echo "semVer=1.0.0-pr.${{ github.event.number }}" >> $GITHUB_OUTPUT
+          echo "nuGetVersionV2=1.0.0-beta.pr.${{ github.event.number }}" >> $GITHUB_OUTPUT
+          echo "semVer=1.0.0-beta.pr.${{ github.event.number }}" >> $GITHUB_OUTPUT
         elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
           echo "nuGetVersionV2=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
           echo "semVer=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
@@ -158,10 +158,28 @@ jobs:
     name: Publish Prerelease to GitHub Packages
     runs-on: ubuntu-latest
     needs: package
-    if: github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
+    # Only publish prereleases for develop branch (alpha) or pull requests to main (beta)
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'pull_request' && github.base_ref == 'main')
     
     steps:
     - uses: actions/checkout@v4
+    
+    - name: Validate Prerelease Conditions
+      run: |
+        echo "Validating prerelease conditions..."
+        echo "Event: ${{ github.event_name }}"
+        echo "Ref: ${{ github.ref }}"
+        echo "Base ref: ${{ github.base_ref }}"
+        
+        if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+          echo "✓ Publishing alpha version from develop branch"
+        elif [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.base_ref }}" = "main" ]; then
+          echo "✓ Publishing beta version for pull request to main (PR #${{ github.event.number }})"
+        else
+          echo "❌ ERROR: Invalid conditions for prerelease"
+          echo "Expected: develop branch OR pull request to main"
+          exit 1
+        fi
     
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -218,7 +236,7 @@ jobs:
     name: Publish Release to GitHub and NuGet.org
     runs-on: ubuntu-latest
     needs: package
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
     - uses: actions/checkout@v4
@@ -246,8 +264,14 @@ jobs:
       id: fallback-version
       if: steps.gitversion.outcome == 'failure'
       run: |
-        echo "nuGetVersionV2=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
-        echo "semVer=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+        # Only create production versions for main branch pushes
+        if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ github.event_name }}" = "push" ]; then
+          echo "nuGetVersionV2=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "semVer=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Fallback version should not run for non-main branch releases"
+          exit 1
+        fi
     
     - name: Set Final Version
       id: version
@@ -273,6 +297,27 @@ jobs:
         git tag -a "v${{ steps.version.outputs.semVer }}" -m "Release v${{ steps.version.outputs.semVer }}"
         git push origin "v${{ steps.version.outputs.semVer }}"
     
+    - name: Validate Release Conditions
+      run: |
+        echo "Validating release conditions..."
+        echo "Event: ${{ github.event_name }}"
+        echo "Ref: ${{ github.ref }}"
+        echo "Base ref: ${{ github.base_ref }}"
+        
+        if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+          echo "❌ ERROR: Production release can only be created from main branch"
+          echo "Current ref: ${{ github.ref }}"
+          exit 1
+        fi
+        
+        if [ "${{ github.event_name }}" != "push" ]; then
+          echo "❌ ERROR: Production release can only be created from direct push to main"
+          echo "Current event: ${{ github.event_name }}"
+          exit 1
+        fi
+        
+        echo "✓ Release conditions validated successfully"
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       env:

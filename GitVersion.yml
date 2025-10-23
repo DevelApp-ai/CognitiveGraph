@@ -18,7 +18,7 @@ branches:
   pull-request:
     regex: ^(pull|pull\-requests|pr)[/-]
     mode: ContinuousDeployment
-    tag: PullRequest
+    tag: beta
     increment: Inherit
     is-release-branch: false
     is-mainline: false

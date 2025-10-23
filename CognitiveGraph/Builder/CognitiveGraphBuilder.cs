@@ -20,6 +20,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using CognitiveGraph.Buffer;
@@ -35,6 +36,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
 {
     private readonly List<byte> _buffer;
     private readonly Dictionary<string, uint> _stringTable;
+    private readonly IntervalTree _intervalTree;
     private uint _currentOffset;
     private GraphHeader _header;
     private bool _disposed;
@@ -43,6 +45,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
     {
         _buffer = new List<byte>();
         _stringTable = new Dictionary<string, uint>();
+        _intervalTree = new IntervalTree();
         _currentOffset = 0;
 
         // Reserve space for header (will be written last)
@@ -163,6 +166,9 @@ public sealed class CognitiveGraphBuilder : IDisposable
         var nodeData = new SymbolNodeData(symbolId, nodeType, sourceStart, sourceLength, packedNodesOffset, propertiesOffset);
         WriteStruct(nodeData);
         
+        // Add to interval tree for spatial indexing
+        _intervalTree.Add(sourceStart, sourceStart + sourceLength - 1, nodeOffset);
+        
         return nodeOffset;
     }
 
@@ -190,7 +196,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
     }
 
     /// <summary>
-    /// Builds the final graph buffer
+    /// Builds the final graph buffer in memory
     /// </summary>
     public CognitiveGraphBuffer Build(uint rootNodeOffset, string sourceText)
     {
@@ -198,6 +204,13 @@ public sealed class CognitiveGraphBuilder : IDisposable
         var sourceTextOffset = _currentOffset;
         var sourceBytes = Encoding.UTF8.GetBytes(sourceText);
         _buffer.AddRange(sourceBytes);
+        _currentOffset += (uint)sourceBytes.Length;
+
+        // Write interval tree index
+        var intervalTreeOffset = _currentOffset;
+        var intervalTreeBytes = _intervalTree.Serialize();
+        _buffer.AddRange(intervalTreeBytes);
+        _currentOffset += (uint)intervalTreeBytes.Length;
 
         // Create and write header
         _header = new GraphHeader(
@@ -208,7 +221,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
             1, // Node count (simplified for now)
             0, // Edge count (simplified for now)
             (uint)sourceBytes.Length,
-            sourceTextOffset
+            sourceTextOffset,
+            intervalTreeOffset
         );
 
         // Write header at the beginning
@@ -221,6 +235,53 @@ public sealed class CognitiveGraphBuilder : IDisposable
         // Create final buffer
         var finalBuffer = new CognitiveGraphBuffer(_buffer.ToArray(), takeOwnership: true);
         return finalBuffer;
+    }
+
+    /// <summary>
+    /// Builds the final graph and writes directly to a file stream for large-scale persistence
+    /// </summary>
+    public void Build(FileStream stream, uint rootNodeOffset, string sourceText)
+    {
+        if (stream == null)
+            throw new ArgumentNullException(nameof(stream));
+        if (!stream.CanWrite)
+            throw new ArgumentException("Stream must be writable", nameof(stream));
+
+        // Write source text to buffer
+        var sourceTextOffset = _currentOffset;
+        var sourceBytes = Encoding.UTF8.GetBytes(sourceText);
+        _buffer.AddRange(sourceBytes);
+        _currentOffset += (uint)sourceBytes.Length;
+
+        // Write interval tree index to buffer
+        var intervalTreeOffset = _currentOffset;
+        var intervalTreeBytes = _intervalTree.Serialize();
+        _buffer.AddRange(intervalTreeBytes);
+        _currentOffset += (uint)intervalTreeBytes.Length;
+
+        // Create header
+        _header = new GraphHeader(
+            GraphHeader.MAGIC_NUMBER,
+            GraphHeader.CURRENT_VERSION,
+            (ushort)GraphFlags.FullyParsed,
+            rootNodeOffset,
+            1, // Node count (simplified for now)
+            0, // Edge count (simplified for now)
+            (uint)sourceBytes.Length,
+            sourceTextOffset,
+            intervalTreeOffset
+        );
+
+        // Write header at the beginning
+        var headerBytes = StructToBytes(_header);
+        for (int i = 0; i < headerBytes.Length; i++)
+        {
+            _buffer[i] = headerBytes[i];
+        }
+
+        // Write entire buffer to stream
+        stream.Write(_buffer.ToArray());
+        stream.Flush();
     }
 
     private void WriteStruct<T>(T value) where T : unmanaged

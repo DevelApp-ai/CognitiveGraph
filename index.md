@@ -1,3 +1,8 @@
+---
+layout: default
+title: CognitiveGraph - High-Performance Zero-Copy Cognitive Graph
+---
+
 # CognitiveGraph
 
 **High-Performance Zero-Copy Cognitive Graph for Advanced Code Analysis**
@@ -79,6 +84,14 @@ if (rootNode.IsAmbiguous)
 }
 ```
 
+## 📚 Documentation
+
+- **[Architecture Guide](docs/Architecture.html)** - Detailed system architecture and design principles
+- **[API Reference](docs/API_REFERENCE.html)** - Complete API documentation with examples
+- **[Platform Compatibility Guide](docs/PLATFORM_COMPATIBILITY.html)** - Detailed platform support information
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.html)** - Common issues and solutions
+- **[Examples](https://github.com/DevelApp-ai/CognitiveGraph/tree/main/CognitiveGraph/Examples)** - Sample code and use cases
+
 ## 🌍 Platform Compatibility
 
 | Platform | Architecture | Status | Performance |
@@ -92,11 +105,21 @@ if (rootNode.IsAmbiguous)
 - **64-bit architecture** recommended for optimal performance
 - **No additional dependencies** - pure managed code implementation
 
-### Tested Environments
-- Ubuntu 20.04+ / CentOS 8+ / Alpine 3.17+
-- Windows 10/11 / Windows Server 2019+
-- macOS 11+ (Intel and Apple Silicon)
-- Docker containers (all major base images)
+## 📊 Performance Characteristics
+
+- **Memory Usage**: O(n) where n is source code size
+- **Parse Tree Space**: O(n³) worst case, O(n) typical case for unambiguous grammars
+- **Access Time**: O(1) for direct property and node access
+- **Thread Safety**: Full read concurrency, single-writer design
+- **GC Pressure**: Minimal due to zero-allocation accessor pattern
+
+### Benchmarks
+| Operation | Time | Memory |
+|-----------|------|---------|
+| Graph Creation (1K nodes) | <1ms | ~50KB |
+| Property Access | ~10ns | 0 bytes |
+| Ambiguity Resolution | ~100ns | 0 bytes |
+| Thread-safe Reading | ~15ns | 0 bytes |
 
 ## 🛠 Advanced Usage
 
@@ -126,24 +149,6 @@ if (node.IsAmbiguous)
 }
 ```
 
-### Property System
-
-```csharp
-var properties = new List<(string key, PropertyValueType type, object value)>
-{
-    ("FileName", PropertyValueType.String, "example.cs"),
-    ("LineNumber", PropertyValueType.Int32, 42),
-    ("IsPublic", PropertyValueType.Boolean, true),
-    ("Complexity", PropertyValueType.Double, 3.14159)
-};
-
-// Properties are stored efficiently and accessed with type safety
-if (node.TryGetProperty("LineNumber", out var line))
-{
-    int lineNum = line.AsInt32();
-}
-```
-
 ### Memory-Mapped Files for Large Datasets
 
 ```csharp
@@ -159,55 +164,6 @@ unsafe
 }
 ```
 
-## 🏗 Building and Testing
-
-### Prerequisites
-```bash
-# Ensure .NET 8 SDK is installed
-dotnet --version  # Should show 8.0.x or later
-```
-
-### Build
-```bash
-git clone https://github.com/DevelApp-ai/CognitiveGraph.git
-cd CognitiveGraph
-dotnet restore
-dotnet build --configuration Release
-```
-
-### Run Tests
-```bash
-# Run all tests
-dotnet test
-
-# Run with coverage
-dotnet test --collect:"XPlat Code Coverage"
-
-# Run performance tests only
-dotnet test --filter "Category=Performance"
-```
-
-### Create NuGet Package
-```bash
-dotnet pack CognitiveGraph/CognitiveGraph.csproj --configuration Release
-```
-
-## 📊 Performance Characteristics
-
-- **Memory Usage**: O(n) where n is source code size
-- **Parse Tree Space**: O(n³) worst case, O(n) typical case for unambiguous grammars
-- **Access Time**: O(1) for direct property and node access
-- **Thread Safety**: Full read concurrency, single-writer design
-- **GC Pressure**: Minimal due to zero-allocation accessor pattern
-
-### Benchmarks
-| Operation | Time | Memory |
-|-----------|------|---------|
-| Graph Creation (1K nodes) | <1ms | ~50KB |
-| Property Access | ~10ns | 0 bytes |
-| Ambiguity Resolution | ~100ns | 0 bytes |
-| Thread-safe Reading | ~15ns | 0 bytes |
-
 ## 🔒 Security and Safety
 
 - **Memory Safety**: Compile-time bounds checking via `ReadOnlySpan<T>`
@@ -215,13 +171,6 @@ dotnet pack CognitiveGraph/CognitiveGraph.csproj --configuration Release
 - **Thread Safety**: Read operations are fully concurrent
 - **Deterministic Layout**: Consistent binary format across platforms
 - **No Code Injection**: Pure data format with no executable content
-
-## 📚 Documentation
-
-- **[Platform Compatibility Guide](docs/PLATFORM_COMPATIBILITY.md)** - Detailed platform support information
-- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation
-- **[Examples](CognitiveGraph/Examples/)** - Sample code and use cases
 
 ## 🤝 Contributing
 
@@ -233,40 +182,9 @@ dotnet pack CognitiveGraph/CognitiveGraph.csproj --configuration Release
 6. Push to the branch: `git push origin feature/amazing-feature`
 7. Open a Pull Request
 
-### Development Environment
-- Visual Studio 2022 17.8+ or VS Code with C# extension
-- .NET 8.0 SDK
-- Git for version control
-
 ## 📄 License
 
-This project is licensed under the AGPL 3.0 License - see the [LICENSE](LICENSE) file for details.
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**Build Errors in Restricted Networks**
-```bash
-# Use offline package restore
-dotnet restore --source ~/.nuget/packages
-```
-
-**Performance Issues on ARM64**
-```bash
-# Ensure using native ARM64 .NET runtime
-dotnet --info | grep -E "(RID|Architecture)"
-```
-
-**Memory Issues with Large Graphs**
-```xml
-<!-- Enable server GC in your project -->
-<PropertyGroup>
-  <ServerGarbageCollection>true</ServerGarbageCollection>
-</PropertyGroup>
-```
-
-For more detailed troubleshooting, see our [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
+This project is licensed under the AGPL 3.0 License - see the [LICENSE](https://github.com/DevelApp-ai/CognitiveGraph/blob/main/LICENSE) file for details.
 
 ## 🌟 Why Choose CognitiveGraph?
 

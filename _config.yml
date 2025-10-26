@@ -1,0 +1,65 @@
+# Site settings
+title: "CognitiveGraph"
+description: "High-Performance Zero-Copy Cognitive Graph for Advanced Code Analysis"
+url: "https://develapp-ai.github.io"
+baseurl: "/CognitiveGraph"
+
+# Theme
+remote_theme: pages-themes/leap-day@v0.2.0
+plugins:
+- jekyll-remote-theme
+
+# Repository information
+repository: "DevelApp-ai/CognitiveGraph"
+github:
+  repository_name: "CognitiveGraph"
+  repository_nwo: "DevelApp-ai/CognitiveGraph"
+  owner_name: "DevelApp-ai"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  hard_wrap: false
+  
+# Collections
+collections:
+  docs:
+    output: true
+    permalink: /:collection/:name/
+
+# Navigation
+navigation:
+  - title: Home
+    url: /
+  - title: Documentation
+    url: /docs/
+  - title: API Reference
+    url: /docs/api-reference/
+  - title: Examples
+    url: /examples/
+  - title: GitHub
+    url: https://github.com/DevelApp-ai/CognitiveGraph
+
+# Exclude files from processing
+exclude:
+  - vendor/
+  - Gemfile
+  - Gemfile.lock
+  - node_modules/
+  - "*.csproj"
+  - "*.sln"
+  - bin/
+  - obj/
+  - packages/
+  - CognitiveGraph/
+  - CognitiveGraph.Tests/
+  - .git/
+  - .github/
+  - .gitignore
+  - GitVersion.yml
+
+# Include files that start with underscores
+include:
+  - _pages

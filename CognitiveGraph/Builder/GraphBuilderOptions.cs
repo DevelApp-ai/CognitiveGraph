@@ -28,9 +28,10 @@ public class GraphBuilderOptions
 {
     /// <summary>
     /// Schema version to use for the graph.
-    /// Default is V2 (Universal Mode) for maximum scalability.
+    /// Default is V1 (Compact Mode) for backward compatibility.
+    /// Use SchemaVersion.V2 for maximum scalability with large graphs.
     /// </summary>
-    public SchemaVersion Schema { get; set; } = SchemaVersion.V2;
+    public SchemaVersion Schema { get; set; } = SchemaVersion.V1;
 
     /// <summary>
     /// Initial capacity for the buffer in bytes.

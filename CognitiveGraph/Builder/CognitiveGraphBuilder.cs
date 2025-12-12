@@ -38,19 +38,37 @@ public sealed class CognitiveGraphBuilder : IDisposable
     private readonly Dictionary<string, uint> _stringTable;
     private readonly IntervalTree _intervalTree;
     private uint _currentOffset;
+    private ulong _currentOffsetV2;
     private GraphHeader _header;
+    private GraphHeaderV2 _headerV2;
+    private readonly GraphBuilderOptions _options;
     private bool _disposed;
 
-    public CognitiveGraphBuilder()
+    public CognitiveGraphBuilder() : this(new GraphBuilderOptions())
     {
-        _buffer = new List<byte>();
+    }
+
+    public CognitiveGraphBuilder(GraphBuilderOptions options)
+    {
+        _options = options ?? throw new ArgumentNullException(nameof(options));
+        _buffer = new List<byte>(_options.InitialCapacity);
         _stringTable = new Dictionary<string, uint>();
         _intervalTree = new IntervalTree();
-        _currentOffset = 0;
-
-        // Reserve space for header (will be written last)
-        _buffer.AddRange(new byte[GraphHeader.SIZE]);
-        _currentOffset = GraphHeader.SIZE;
+        
+        if (_options.Schema == SchemaVersion.V1)
+        {
+            _currentOffset = 0;
+            // Reserve space for V1 header (will be written last)
+            _buffer.AddRange(new byte[GraphHeader.SIZE]);
+            _currentOffset = GraphHeader.SIZE;
+        }
+        else // V2
+        {
+            _currentOffsetV2 = 0;
+            // Reserve space for V2 header (will be written last)
+            _buffer.AddRange(new byte[GraphHeaderV2.SIZE]);
+            _currentOffsetV2 = GraphHeaderV2.SIZE;
+        }
     }
 
     /// <summary>
@@ -61,12 +79,20 @@ public sealed class CognitiveGraphBuilder : IDisposable
         if (_stringTable.TryGetValue(value, out var existingOffset))
             return existingOffset;
 
-        var offset = _currentOffset;
+        var offset = _options.Schema == SchemaVersion.V1 ? _currentOffset : (uint)_currentOffsetV2;
         var bytes = Encoding.UTF8.GetBytes(value);
         
         _buffer.AddRange(bytes);
         _buffer.Add(0); // null terminator
-        _currentOffset += (uint)(bytes.Length + 1);
+        
+        if (_options.Schema == SchemaVersion.V1)
+        {
+            _currentOffset += (uint)(bytes.Length + 1);
+        }
+        else
+        {
+            _currentOffsetV2 += (ulong)(bytes.Length + 1);
+        }
         
         _stringTable[value] = offset;
         return offset;
@@ -77,7 +103,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
     /// </summary>
     public uint WritePropertyValue(PropertyValueType type, object value)
     {
-        var offset = _currentOffset;
+        var offset = _options.Schema == SchemaVersion.V1 ? _currentOffset : (uint)_currentOffsetV2;
         
         // Write header
         var header = new PropertyValueHeader(type, GetValueLength(type, value));
@@ -89,7 +115,10 @@ public sealed class CognitiveGraphBuilder : IDisposable
             case PropertyValueType.String:
                 var stringBytes = Encoding.UTF8.GetBytes((string)value);
                 _buffer.AddRange(stringBytes);
-                _currentOffset += (uint)stringBytes.Length;
+                if (_options.Schema == SchemaVersion.V1)
+                    _currentOffset += (uint)stringBytes.Length;
+                else
+                    _currentOffsetV2 += (ulong)stringBytes.Length;
                 break;
                 
             case PropertyValueType.Int32:
@@ -136,11 +165,37 @@ public sealed class CognitiveGraphBuilder : IDisposable
     }
 
     /// <summary>
+    /// Writes a list of items to the buffer using V2 schema (64-bit offsets)
+    /// </summary>
+    private ulong WriteListV2<T>(IReadOnlyList<T> items, Func<T, ulong> itemWriter)
+    {
+        var offset = _currentOffsetV2;
+        
+        // Write count (64-bit for V2)
+        WriteStruct((ulong)items.Count);
+        
+        // Write items
+        foreach (var item in items)
+        {
+            itemWriter(item);
+        }
+        
+        return offset;
+    }
+
+    /// <summary>
     /// Writes a symbol node to the buffer
     /// </summary>
     public uint WriteSymbolNode(ushort symbolId, ushort nodeType, uint sourceStart, uint sourceLength,
         IReadOnlyList<uint>? packedNodeOffsets = null, IReadOnlyList<(string key, PropertyValueType type, object value)>? properties = null)
     {
+        if (_options.Schema == SchemaVersion.V2)
+        {
+            // For V2, delegate to the V2-specific method with expanded types
+            return (uint)WriteSymbolNodeV2(symbolId, nodeType, sourceStart, sourceLength, packedNodeOffsets, properties);
+        }
+        
+        // V1 implementation
         // Write packed nodes list
         var packedNodesOffset = packedNodeOffsets?.Count > 0 
             ? WriteList(packedNodeOffsets, o => { WriteStruct(o); return 0; })
@@ -173,10 +228,53 @@ public sealed class CognitiveGraphBuilder : IDisposable
     }
 
     /// <summary>
+    /// Writes a symbol node to the buffer using V2 schema
+    /// </summary>
+    private ulong WriteSymbolNodeV2(uint symbolId, uint nodeType, uint sourceStart, uint sourceLength,
+        IReadOnlyList<uint>? packedNodeOffsets = null, IReadOnlyList<(string key, PropertyValueType type, object value)>? properties = null)
+    {
+        // Write packed nodes list with 64-bit offsets
+        var packedNodesOffsetV2 = packedNodeOffsets?.Count > 0 
+            ? WriteListV2(packedNodeOffsets, o => { WriteStruct((ulong)o); return 0UL; })
+            : 0UL;
+
+        // Write properties list
+        var propertiesOffsetV2 = 0UL;
+        if (properties?.Count > 0)
+        {
+            var propertyDataList = new List<PropertyData>();
+            foreach (var (key, type, value) in properties)
+            {
+                var keyOffset = WriteString(key);
+                var valueOffset = WritePropertyValue(type, value);
+                propertyDataList.Add(new PropertyData(keyOffset, valueOffset));
+            }
+            
+            propertiesOffsetV2 = WriteListV2(propertyDataList, p => { WriteStruct(p); return 0UL; });
+        }
+
+        // Now write the symbol node data and capture its offset
+        var nodeOffset = _currentOffsetV2;
+        var nodeData = new SymbolNodeDataV2(symbolId, nodeType, sourceStart, sourceLength, packedNodesOffsetV2, propertiesOffsetV2);
+        WriteStruct(nodeData);
+        
+        // Add to interval tree for spatial indexing
+        _intervalTree.Add(sourceStart, sourceStart + sourceLength - 1, (uint)nodeOffset);
+        
+        return nodeOffset;
+    }
+
+    /// <summary>
     /// Writes a packed node to the buffer
     /// </summary>
     public uint WritePackedNode(ushort ruleId, IReadOnlyList<uint>? childNodeOffsets = null, IReadOnlyList<CpgEdgeData>? cpgEdges = null)
     {
+        if (_options.Schema == SchemaVersion.V2)
+        {
+            return (uint)WritePackedNodeV2(ruleId, childNodeOffsets, cpgEdges);
+        }
+        
+        // V1 implementation
         // Write child nodes list
         var childNodesOffset = childNodeOffsets?.Count > 0 
             ? WriteList(childNodeOffsets, o => { WriteStruct(o); return 0; })
@@ -196,10 +294,39 @@ public sealed class CognitiveGraphBuilder : IDisposable
     }
 
     /// <summary>
+    /// Writes a packed node to the buffer using V2 schema
+    /// </summary>
+    private ulong WritePackedNodeV2(uint ruleId, IReadOnlyList<uint>? childNodeOffsets = null, IReadOnlyList<CpgEdgeData>? cpgEdges = null)
+    {
+        // Write child nodes list with 64-bit offsets
+        var childNodesOffsetV2 = childNodeOffsets?.Count > 0 
+            ? WriteListV2(childNodeOffsets, o => { WriteStruct((ulong)o); return 0UL; })
+            : 0UL;
+
+        // Write CPG edges list
+        var cpgEdgesOffsetV2 = cpgEdges?.Count > 0 
+            ? WriteListV2(cpgEdges, e => { WriteStruct(e); return 0UL; })
+            : 0UL;
+
+        // Now write the packed node data and capture its offset
+        var nodeOffset = _currentOffsetV2;
+        var nodeData = new PackedNodeDataV2(ruleId, childNodesOffsetV2, cpgEdgesOffsetV2);
+        WriteStruct(nodeData);
+        
+        return nodeOffset;
+    }
+
+    /// <summary>
     /// Builds the final graph buffer in memory
     /// </summary>
     public CognitiveGraphBuffer Build(uint rootNodeOffset, string sourceText)
     {
+        if (_options.Schema == SchemaVersion.V2)
+        {
+            return BuildV2(rootNodeOffset, sourceText);
+        }
+        
+        // V1 implementation
         // Write source text
         var sourceTextOffset = _currentOffset;
         var sourceBytes = Encoding.UTF8.GetBytes(sourceText);
@@ -233,6 +360,48 @@ public sealed class CognitiveGraphBuilder : IDisposable
         }
 
         // Create final buffer
+        var finalBuffer = new CognitiveGraphBuffer(_buffer.ToArray(), takeOwnership: true);
+        return finalBuffer;
+    }
+
+    /// <summary>
+    /// Builds the final graph buffer in memory using V2 schema
+    /// </summary>
+    private CognitiveGraphBuffer BuildV2(uint rootNodeOffset, string sourceText)
+    {
+        // Write source text
+        var sourceTextOffsetV2 = _currentOffsetV2;
+        var sourceBytes = Encoding.UTF8.GetBytes(sourceText);
+        _buffer.AddRange(sourceBytes);
+        _currentOffsetV2 += (ulong)sourceBytes.Length;
+
+        // Write interval tree index
+        var intervalTreeOffsetV2 = _currentOffsetV2;
+        var intervalTreeBytes = _intervalTree.Serialize();
+        _buffer.AddRange(intervalTreeBytes);
+        _currentOffsetV2 += (ulong)intervalTreeBytes.Length;
+
+        // Create and write V2 header
+        _headerV2 = new GraphHeaderV2(
+            GraphHeaderV2.MAGIC_NUMBER,
+            GraphHeaderV2.SCHEMA_VERSION,
+            (ushort)GraphFlags.FullyParsed,
+            rootNodeOffset,
+            1, // Node count (simplified for now)
+            0, // Edge count (simplified for now)
+            (ulong)sourceBytes.Length,
+            sourceTextOffsetV2,
+            intervalTreeOffsetV2
+        );
+
+        // Write header at the beginning
+        var headerBytes = StructToBytes(_headerV2);
+        for (int i = 0; i < headerBytes.Length; i++)
+        {
+            _buffer[i] = headerBytes[i];
+        }
+
+        // Create final buffer (wrapping as CognitiveGraphBuffer for compatibility)
         var finalBuffer = new CognitiveGraphBuffer(_buffer.ToArray(), takeOwnership: true);
         return finalBuffer;
     }
@@ -288,7 +457,11 @@ public sealed class CognitiveGraphBuilder : IDisposable
     {
         var bytes = StructToBytes(value);
         _buffer.AddRange(bytes);
-        _currentOffset += (uint)bytes.Length;
+        
+        if (_options.Schema == SchemaVersion.V1)
+            _currentOffset += (uint)bytes.Length;
+        else
+            _currentOffsetV2 += (ulong)bytes.Length;
     }
 
     private static byte[] StructToBytes<T>(T value) where T : unmanaged

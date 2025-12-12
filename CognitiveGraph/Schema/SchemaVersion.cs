@@ -17,31 +17,22 @@
  */
 
 
-using System;
-using System.Runtime.InteropServices;
-using CognitiveGraph.Schema;
-
-namespace CognitiveGraph.Buffer;
+namespace CognitiveGraph.Schema;
 
 /// <summary>
-/// High-performance, zero-copy buffer for storing the Cognitive Graph.
-/// Uses a contiguous memory layout with offset-based navigation.
-/// This is an alias for CompactGraphBuffer for backward compatibility.
+/// Schema version for the Cognitive Graph binary format
 /// </summary>
-[Obsolete("Use CompactGraphBuffer for V1 schema or UniversalGraphBuffer for V2 schema")]
-public sealed class CognitiveGraphBuffer : CompactGraphBuffer
+public enum SchemaVersion : ushort
 {
     /// <summary>
-    /// Creates a new buffer with the specified capacity
+    /// Schema V1 (Compact Mode): Legacy layout optimized for memory efficiency.
+    /// Uses 32-bit offsets and 16-bit IDs. Max file size ~4GB.
     /// </summary>
-    public CognitiveGraphBuffer(int capacity) : base(capacity)
-    {
-    }
-
+    V1 = 1,
+    
     /// <summary>
-    /// Creates a buffer view over existing data (for memory-mapped files, etc.)
+    /// Schema V2 (Universal Mode): High-scale layout for massive graphs.
+    /// Uses 64-bit offsets and 32-bit IDs. Max file size 16 Exabytes.
     /// </summary>
-    public CognitiveGraphBuffer(byte[] data, bool takeOwnership = false) : base(data, takeOwnership)
-    {
-    }
+    V2 = 2
 }

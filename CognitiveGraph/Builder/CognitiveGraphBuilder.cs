@@ -419,6 +419,13 @@ public sealed class CognitiveGraphBuilder : IDisposable
         if (!stream.CanWrite)
             throw new ArgumentException("Stream must be writable", nameof(stream));
 
+        if (_options.Schema == SchemaVersion.V2)
+        {
+            BuildV2ToStream(stream, rootNodeOffset, sourceText);
+            return;
+        }
+
+        // V1 implementation
         // Write source text to buffer
         var sourceTextOffset = _currentOffset;
         var sourceBytes = Encoding.UTF8.GetBytes(sourceText);
@@ -446,6 +453,48 @@ public sealed class CognitiveGraphBuilder : IDisposable
 
         // Write header at the beginning
         var headerBytes = StructToBytes(_header);
+        for (int i = 0; i < headerBytes.Length; i++)
+        {
+            _buffer[i] = headerBytes[i];
+        }
+
+        // Write entire buffer to stream
+        stream.Write(_buffer.ToArray());
+        stream.Flush();
+    }
+
+    /// <summary>
+    /// Builds V2 graph and writes to file stream
+    /// </summary>
+    private void BuildV2ToStream(FileStream stream, uint rootNodeOffset, string sourceText)
+    {
+        // Write source text
+        var sourceTextOffsetV2 = _currentOffsetV2;
+        var sourceBytes = Encoding.UTF8.GetBytes(sourceText);
+        _buffer.AddRange(sourceBytes);
+        _currentOffsetV2 += (ulong)sourceBytes.Length;
+
+        // Write interval tree index
+        var intervalTreeOffsetV2 = _currentOffsetV2;
+        var intervalTreeBytes = _intervalTree.Serialize();
+        _buffer.AddRange(intervalTreeBytes);
+        _currentOffsetV2 += (ulong)intervalTreeBytes.Length;
+
+        // Create and write V2 header
+        _headerV2 = new GraphHeaderV2(
+            GraphHeaderV2.MAGIC_NUMBER,
+            GraphHeaderV2.SCHEMA_VERSION,
+            (ushort)GraphFlags.FullyParsed,
+            rootNodeOffset,
+            1, // Node count (simplified for now)
+            0, // Edge count (simplified for now)
+            (ulong)sourceBytes.Length,
+            sourceTextOffsetV2,
+            intervalTreeOffsetV2
+        );
+
+        // Write header at the beginning
+        var headerBytes = StructToBytes(_headerV2);
         for (int i = 0; i < headerBytes.Length; i++)
         {
             _buffer[i] = headerBytes[i];

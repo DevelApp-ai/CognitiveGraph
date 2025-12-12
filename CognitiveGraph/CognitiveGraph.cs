@@ -73,11 +73,11 @@ public sealed class CognitiveGraph : IDisposable
         }
         else if (_schemaVersion == SchemaVersion.V2)
         {
-            // For V2, we need a proper buffer implementation
-            // NOTE: This is a simplified implementation. For true V2 support from byte arrays,
-            // we would need to create a UniversalGraphBuffer from the data.
-            // For now, we can read the V2 header but full V2 support requires memory-mapped files.
+            // For V2, read the header and set up the buffer for V2 operations
+            // Note: For byte array buffers, we use CompactGraphBuffer for compatibility
+            // but we can still read V2 data structures
             _headerV2 = MemoryMarshal.Read<GraphHeaderV2>(_bufferV1.AsSpan());
+            _bufferV2 = _bufferV1; // Use the V1 buffer as V2 buffer for in-memory graphs
         }
         else
         {
@@ -204,8 +204,17 @@ public sealed class CognitiveGraph : IDisposable
         if (_schemaVersion != SchemaVersion.V2 || _bufferV2 == null || _headerV2 == null)
             throw new InvalidOperationException("GetRootNodeV2() is only available for V2 schema. Use GetRootNode() for V1.");
         
-        var universalBuffer = (UniversalGraphBuffer)_bufferV2;
-        return new SymbolNode64(universalBuffer, (long)_headerV2.Value.RootNodeOffset);
+        // For V2 graphs loaded from byte arrays (in-memory), we can still access via IGraphBuffer interface
+        if (_bufferV2 is UniversalGraphBuffer universalBuffer)
+        {
+            return new SymbolNode64(universalBuffer, (long)_headerV2.Value.RootNodeOffset);
+        }
+        else
+        {
+            // For in-memory V2 graphs, we need to create a temporary UniversalGraphBuffer
+            // This is a limitation - true V2 support works best with file-based graphs
+            throw new NotSupportedException("V2 accessor methods require file-based graphs. Use GetSourceText() and GetStatistics() for in-memory V2 graphs.");
+        }
     }
 
     /// <summary>

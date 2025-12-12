@@ -17,31 +17,41 @@
  */
 
 
-using System;
 using System.Runtime.InteropServices;
-using CognitiveGraph.Schema;
 
-namespace CognitiveGraph.Buffer;
+namespace CognitiveGraph.Schema;
 
 /// <summary>
-/// High-performance, zero-copy buffer for storing the Cognitive Graph.
-/// Uses a contiguous memory layout with offset-based navigation.
-/// This is an alias for CompactGraphBuffer for backward compatibility.
+/// Common preamble shared by all schema versions for version detection.
+/// Both V1 and V2 headers share the first 6 bytes identically.
+/// Total size: 6 bytes
 /// </summary>
-[Obsolete("Use CompactGraphBuffer for V1 schema or UniversalGraphBuffer for V2 schema")]
-public sealed class CognitiveGraphBuffer : CompactGraphBuffer
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct GraphHeaderPreamble
 {
     /// <summary>
-    /// Creates a new buffer with the specified capacity
+    /// File format identifier: 0x434F474E ("COGN")
     /// </summary>
-    public CognitiveGraphBuffer(int capacity) : base(capacity)
+    public readonly uint MagicNumber;
+    
+    /// <summary>
+    /// Schema version number (1 for V1, 2 for V2)
+    /// </summary>
+    public readonly ushort Version;
+
+    public GraphHeaderPreamble(uint magicNumber, ushort version)
     {
+        MagicNumber = magicNumber;
+        Version = version;
     }
 
     /// <summary>
-    /// Creates a buffer view over existing data (for memory-mapped files, etc.)
+    /// Standard magic number for Cognitive Graph files
     /// </summary>
-    public CognitiveGraphBuffer(byte[] data, bool takeOwnership = false) : base(data, takeOwnership)
-    {
-    }
+    public const uint MAGIC_NUMBER = 0x434F474E; // "COGN"
+    
+    /// <summary>
+    /// Size of the preamble in bytes
+    /// </summary>
+    public const int SIZE = 6;
 }

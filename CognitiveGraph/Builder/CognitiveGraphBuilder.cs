@@ -343,13 +343,17 @@ public sealed class CognitiveGraphBuilder : IDisposable
         _currentOffset += (uint)intervalTreeBytes.Length;
 
         // Create and write header
+        // TODO: Replace hard-coded node/edge counts with actual calculated values
+        const uint TEMP_NODE_COUNT = 1;  // Root node only for basic graphs
+        const uint TEMP_EDGE_COUNT = 0;  // No edges in basic test graphs
+        
         _header = new GraphHeader(
             GraphHeader.MAGIC_NUMBER,
             GraphHeader.CURRENT_VERSION,
             (ushort)GraphFlags.FullyParsed,
             rootNodeOffset,
-            1, // Node count (simplified for now)
-            0, // Edge count (simplified for now)
+            TEMP_NODE_COUNT,  // Node count (temporary - needs full implementation)
+            TEMP_EDGE_COUNT,  // Edge count (temporary - needs full implementation)
             (uint)sourceBytes.Length,
             sourceTextOffset,
             intervalTreeOffset
@@ -390,8 +394,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
             GraphHeaderV2.SCHEMA_VERSION,
             (ushort)GraphFlags.FullyParsed,
             rootNodeOffset,
-            1, // Node count (simplified for now)
-            0, // Edge count (simplified for now)
+            1, // Node count (TODO: calculate actual count)
+            0, // Edge count (TODO: calculate actual count)
             (ulong)sourceBytes.Length,
             sourceTextOffsetV2,
             intervalTreeOffsetV2
@@ -439,13 +443,17 @@ public sealed class CognitiveGraphBuilder : IDisposable
         _currentOffset += (uint)intervalTreeBytes.Length;
 
         // Create header
+        // TODO: Replace hard-coded node/edge counts with actual calculated values
+        const uint TEMP_NODE_COUNT = 1;  // Root node only for basic graphs
+        const uint TEMP_EDGE_COUNT = 0;  // No edges in basic test graphs
+        
         _header = new GraphHeader(
             GraphHeader.MAGIC_NUMBER,
             GraphHeader.CURRENT_VERSION,
             (ushort)GraphFlags.FullyParsed,
             rootNodeOffset,
-            1, // Node count (simplified for now)
-            0, // Edge count (simplified for now)
+            TEMP_NODE_COUNT,  // Node count (temporary - needs full implementation)
+            TEMP_EDGE_COUNT,  // Edge count (temporary - needs full implementation)
             (uint)sourceBytes.Length,
             sourceTextOffset,
             intervalTreeOffset
@@ -486,8 +494,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
             GraphHeaderV2.SCHEMA_VERSION,
             (ushort)GraphFlags.FullyParsed,
             rootNodeOffset,
-            1, // Node count (simplified for now)
-            0, // Edge count (simplified for now)
+            1, // Node count (TODO: calculate actual count)
+            0, // Edge count (TODO: calculate actual count)
             (ulong)sourceBytes.Length,
             sourceTextOffsetV2,
             intervalTreeOffsetV2

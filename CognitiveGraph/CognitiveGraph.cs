@@ -74,10 +74,12 @@ public sealed class CognitiveGraph : IDisposable
         else if (_schemaVersion == SchemaVersion.V2)
         {
             // For V2, read the header and set up the buffer for V2 operations
-            // Note: For byte array buffers, we use CompactGraphBuffer for compatibility
-            // but we can still read V2 data structures
+            // IMPORTANT: For in-memory graphs (byte arrays), we reuse the CompactGraphBuffer
+            // but this limits V2 functionality - full V2 accessor support (SymbolNode64)
+            // requires UniversalGraphBuffer which is file-based. In-memory V2 graphs
+            // can still use GetSourceText() and GetStatistics() but not GetRootNodeV2().
             _headerV2 = MemoryMarshal.Read<GraphHeaderV2>(_bufferV1.AsSpan());
-            _bufferV2 = _bufferV1; // Use the V1 buffer as V2 buffer for in-memory graphs
+            _bufferV2 = _bufferV1; // Reuse V1 buffer for in-memory V2 graphs (limited functionality)
         }
         else
         {

@@ -43,7 +43,7 @@ public class DualSchemaTests
     public void GraphHeaderPreamble_MagicNumber_IsCorrect()
     {
         var preamble = new GraphHeaderPreamble(GraphHeaderPreamble.MAGIC_NUMBER, 1);
-        Assert.Equal(0x434F474E, preamble.MagicNumber);
+        Assert.Equal((uint)0x434F474E, preamble.MagicNumber);
         Assert.Equal((ushort)1, preamble.Version);
     }
 

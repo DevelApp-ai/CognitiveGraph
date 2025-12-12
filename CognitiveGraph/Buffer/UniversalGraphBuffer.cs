@@ -207,14 +207,14 @@ public sealed unsafe class UniversalGraphBuffer : IGraphBuffer
     /// <summary>
     /// Reads a null-terminated string from the buffer at the specified offset
     /// </summary>
-    public string ReadString(ulong offset)
+    public string ReadString(long offset)
     {
-        if ((long)offset >= _length)
+        if (offset >= _length || offset < 0)
             throw new ArgumentOutOfRangeException(nameof(offset));
 
-        var start = _ptr + (long)offset;
+        var start = _ptr + offset;
         var current = start;
-        var maxLength = _length - (long)offset;
+        var maxLength = _length - offset;
 
         // Find null terminator
         long length = 0;

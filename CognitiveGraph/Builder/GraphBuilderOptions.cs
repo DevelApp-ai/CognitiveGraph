@@ -35,8 +35,9 @@ public class GraphBuilderOptions
     /// <summary>
     /// Initial capacity for the buffer in bytes.
     /// Default is 64KB.
+    /// For V2 schemas supporting >4GB, this will be expanded dynamically.
     /// </summary>
-    public long InitialCapacity { get; set; } = 64 * 1024;
+    public int InitialCapacity { get; set; } = 64 * 1024;
 
     /// <summary>
     /// Creates default options for V2 (Universal Mode)

@@ -74,6 +74,11 @@ public readonly struct GraphHeaderV2
     /// Offset to the interval tree index for spatial queries
     /// </summary>
     public readonly ulong IntervalTreeOffset;
+    
+    /// <summary>
+    /// Reserved for future use (padding to 64 bytes)
+    /// </summary>
+    private readonly ulong _reserved;
 
     public GraphHeaderV2(uint magicNumber, ushort version, ushort flags, ulong rootNodeOffset,
         ulong nodeCount, ulong edgeCount, ulong sourceTextLength, ulong sourceTextOffset, ulong intervalTreeOffset = 0)
@@ -87,6 +92,7 @@ public readonly struct GraphHeaderV2
         SourceTextLength = sourceTextLength;
         SourceTextOffset = sourceTextOffset;
         IntervalTreeOffset = intervalTreeOffset;
+        _reserved = 0;
     }
 
     /// <summary>

@@ -131,7 +131,20 @@ public readonly ref struct PackedNodeOffsetCollection64
     /// <summary>
     /// Number of packed nodes in the collection
     /// </summary>
-    public int Count => (int)Math.Min(_count, int.MaxValue);
+    public int Count
+    {
+        get
+        {
+            if (_count > int.MaxValue)
+                throw new InvalidOperationException($"Collection has {_count} items which exceeds int.MaxValue. Use a different access pattern for such large collections.");
+            return (int)_count;
+        }
+    }
+    
+    /// <summary>
+    /// Gets the full count as ulong for very large collections
+    /// </summary>
+    public ulong LongCount => _count;
 
     /// <summary>
     /// Gets a packed node at the specified index
@@ -193,7 +206,20 @@ public readonly ref struct SymbolNodeOffsetCollection64
     /// <summary>
     /// Number of symbol nodes in the collection
     /// </summary>
-    public int Count => (int)Math.Min(_count, int.MaxValue);
+    public int Count
+    {
+        get
+        {
+            if (_count > int.MaxValue)
+                throw new InvalidOperationException($"Collection has {_count} items which exceeds int.MaxValue. Use a different access pattern for such large collections.");
+            return (int)_count;
+        }
+    }
+    
+    /// <summary>
+    /// Gets the full count as ulong for very large collections
+    /// </summary>
+    public ulong LongCount => _count;
 
     /// <summary>
     /// Gets a symbol node at the specified index

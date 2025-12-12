@@ -73,9 +73,11 @@ public sealed class CognitiveGraph : IDisposable
         }
         else if (_schemaVersion == SchemaVersion.V2)
         {
-            // For V2, we need to read the V2 header
+            // For V2, we need a proper buffer implementation
+            // NOTE: This is a simplified implementation. For true V2 support from byte arrays,
+            // we would need to create a UniversalGraphBuffer from the data.
+            // For now, we can read the V2 header but full V2 support requires memory-mapped files.
             _headerV2 = MemoryMarshal.Read<GraphHeaderV2>(_bufferV1.AsSpan());
-            _bufferV2 = _bufferV1; // V1 buffer can read V2 data
         }
         else
         {
@@ -413,10 +415,20 @@ public sealed class CognitiveGraph : IDisposable
 
     /// <summary>
     /// Upgrades a V1 graph file to V2 format.
-    /// Opens the input V1 file, traverses all nodes, and writes them to a V2 file.
+    /// 
+    /// NOTE: This is a BASIC implementation that only handles the root node and source text.
+    /// A full production implementation would need to:
+    /// 1. Traverse all symbol nodes in the V1 graph
+    /// 2. Copy all packed nodes and their child relationships
+    /// 3. Copy all properties
+    /// 4. Copy all CPG edges
+    /// 5. Rebuild the interval tree index
+    /// 
+    /// This method serves as a foundation and example for V1→V2 conversion.
     /// </summary>
     /// <param name="inputPath">Path to the input V1 graph file</param>
     /// <param name="outputPath">Path for the output V2 graph file</param>
+    [Obsolete("This is a basic implementation. Full graph traversal not yet implemented.")]
     public static void Upgrade(string inputPath, string outputPath)
     {
         if (string.IsNullOrWhiteSpace(inputPath))
@@ -445,8 +457,6 @@ public sealed class CognitiveGraph : IDisposable
         using var builder = new CognitiveGraphBuilder(options);
 
         // Write the root node to V2 format
-        // Note: This is a simplified implementation. A full implementation would need to
-        // traverse the entire graph structure and copy all nodes, packed nodes, properties, etc.
         var rootNodeOffset = builder.WriteSymbolNode(
             rootNode.SymbolID,
             rootNode.NodeType,
@@ -459,13 +469,6 @@ public sealed class CognitiveGraph : IDisposable
         // Build and write to file
         using var outputStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
         builder.Build(outputStream, rootNodeOffset, sourceText);
-        
-        // Note: This is a basic implementation. A production version would need to:
-        // 1. Traverse all symbol nodes in the V1 graph
-        // 2. Copy all packed nodes and their child relationships
-        // 3. Copy all properties
-        // 4. Copy all CPG edges
-        // 5. Rebuild the interval tree index
     }
 
     public void Dispose()

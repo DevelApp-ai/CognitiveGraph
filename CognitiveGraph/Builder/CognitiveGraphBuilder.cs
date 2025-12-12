@@ -74,12 +74,12 @@ public sealed class CognitiveGraphBuilder : IDisposable
     /// <summary>
     /// Writes a string to the buffer and returns its offset
     /// </summary>
-    public uint WriteString(string value)
+    public ulong WriteString(string value)
     {
         if (_stringTable.TryGetValue(value, out var existingOffset))
             return existingOffset;
 
-        var offset = _options.Schema == SchemaVersion.V1 ? _currentOffset : (uint)_currentOffsetV2;
+        ulong offset = _options.Schema == SchemaVersion.V1 ? _currentOffset : _currentOffsetV2;
         var bytes = Encoding.UTF8.GetBytes(value);
         
         _buffer.AddRange(bytes);
@@ -94,16 +94,16 @@ public sealed class CognitiveGraphBuilder : IDisposable
             _currentOffsetV2 += (ulong)(bytes.Length + 1);
         }
         
-        _stringTable[value] = offset;
+        _stringTable[value] = (uint)offset; // Store as uint for compatibility
         return offset;
     }
 
     /// <summary>
     /// Writes a property value to the buffer
     /// </summary>
-    public uint WritePropertyValue(PropertyValueType type, object value)
+    public ulong WritePropertyValue(PropertyValueType type, object value)
     {
-        var offset = _options.Schema == SchemaVersion.V1 ? _currentOffset : (uint)_currentOffsetV2;
+        ulong offset = _options.Schema == SchemaVersion.V1 ? _currentOffset : _currentOffsetV2;
         
         // Write header
         var header = new PropertyValueHeader(type, GetValueLength(type, value));
@@ -210,7 +210,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
             {
                 var keyOffset = WriteString(key);
                 var valueOffset = WritePropertyValue(type, value);
-                propertyDataList.Add(new PropertyData(keyOffset, valueOffset));
+                // PropertyData uses uint offsets (V1 schema), cast for compatibility
+                propertyDataList.Add(new PropertyData((uint)keyOffset, (uint)valueOffset));
             }
             
             propertiesOffset = WriteList(propertyDataList, p => { WriteStruct(p); return 0; });
@@ -247,7 +248,9 @@ public sealed class CognitiveGraphBuilder : IDisposable
             {
                 var keyOffset = WriteString(key);
                 var valueOffset = WritePropertyValue(type, value);
-                propertyDataList.Add(new PropertyData(keyOffset, valueOffset));
+                // PropertyData uses uint offsets, cast for V1 compatibility
+                // Note: For true V2 support, would need PropertyDataV2 structure
+                propertyDataList.Add(new PropertyData((uint)keyOffset, (uint)valueOffset));
             }
             
             propertiesOffsetV2 = WriteListV2(propertyDataList, p => { WriteStruct(p); return 0UL; });

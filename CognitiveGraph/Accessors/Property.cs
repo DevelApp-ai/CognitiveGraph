@@ -64,7 +64,8 @@ public readonly ref struct Property
     /// </summary>
     public PropertyValue GetValue()
     {
-        // First read the header to get the actual length
+        // F
+irst read the header to get the actual length
         var headerSpan = _graph.Slice((int)ValueOffset, PropertyValueHeader.SIZE);
         var header = System.Runtime.InteropServices.MemoryMarshal.Read<PropertyValueHeader>(headerSpan);
         
@@ -132,7 +133,8 @@ public ref struct PropertyEnumerator
         _currentIndex = -1;
     }
 
-    public Property Current
+    public Pro
+perty Current
     {
         get
         {
@@ -202,7 +204,8 @@ public readonly ref struct PropertyValue
     public uint AsUInt32()
     {
         if (Type != PropertyValueType.UInt32)
-            throw new InvalidOperationException($"Property type is {Type}, not UInt32");
+            throw new InvalidOperationException($"Property type is {Ty
+pe}, not UInt32");
 
         return MemoryMarshal.Read<uint>(_dataSpan.Slice(PropertyValueHeader.SIZE));
     }
@@ -227,6 +230,50 @@ public readonly ref struct PropertyValue
             throw new InvalidOperationException($"Property type is {Type}, not Double");
 
         return MemoryMarshal.Read<double>(_dataSpan.Slice(PropertyValueHeader.SIZE));
+    }
+
+    /// <summary>
+    /// Gets the value as a long (Int64)
+    /// </summary>
+    public long AsInt64()
+    {
+        if (Type != PropertyValueType.Int64)
+            throw new InvalidOperationException($"Property type is {Type}, not Int64");
+
+        return MemoryMarshal.Read<long>(_dataSpan.Slice(PropertyValueHeader.SIZE));
+    }
+
+    /// <summary>
+    /// Gets the value as an unsigned long (UInt64)
+    /// </summary>
+    public ulong AsUInt64()
+    {
+        if (Type != PropertyValueType.UInt64)
+            throw new InvalidOperationException($"Property type is {Type}, not UInt64");
+
+        return MemoryMarshal.Read<ulong>(_dataSpan.Slice(PropertyValueHeader.SIZE));
+    }
+
+    /// <summary>
+    /// Gets the value as a float
+    /// </summary>
+    public float AsFloat()
+    {
+        if (Type != PropertyValueType.Float)
+            throw new InvalidOperationException($"Property type is {Type}, not Float");
+
+        return MemoryMarshal.Read<float>(_dataSpan.Slice(PropertyValueHeader.SIZE));
+    }
+
+    /// <summary>
+    /// Gets the value as a binary blob
+    /// </summary>
+    public ReadOnlySpan<byte> AsBinary()
+    {
+        if (Type != PropertyValueType.Binary)
+            throw new InvalidOperationException($"Property type is {Type}, not Binary");
+
+        return _dataSpan.Slice(PropertyValueHeader.SIZE, (int)Length);
     }
 
     /// <summary>
@@ -273,7 +320,8 @@ public readonly ref struct SymbolNodeOffsetCollection
         }
     }
 
-    /// <summary>
+    /// <summar
+y>
     /// Enumerates all child nodes
     /// </summary>
     public SymbolNodeOffsetEnumerator GetEnumerator() => new(_data, _graph);
@@ -346,7 +394,8 @@ public ref struct PackedNodeOffsetEnumerator
         }
     }
 
-    public bool MoveNext()
+    publ
+ic bool MoveNext()
     {
         _currentIndex++;
         return _currentIndex < _data.Length / sizeof(uint);

@@ -55,6 +55,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
         _stringTable = new Dictionary<string, uint>();
         _intervalTree = new IntervalTree();
         
+
         if (_options.Schema == SchemaVersion.V1)
         {
             _currentOffset = 0;
@@ -115,7 +116,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
             case PropertyValueType.String:
                 var stringBytes = Encoding.UTF8.GetBytes((string)value);
                 _buffer.AddRange(stringBytes);
-                if (_options.Schema == SchemaVersion.V1)
+                
+if (_options.Schema == SchemaVersion.V1)
                     _currentOffset += (uint)stringBytes.Length;
                 else
                     _currentOffsetV2 += (ulong)stringBytes.Length;
@@ -138,6 +140,27 @@ public sealed class CognitiveGraphBuilder : IDisposable
                 WriteStruct((double)value);
                 break;
                 
+            case PropertyValueType.Int64:
+                WriteStruct((long)value);
+                break;
+
+            case PropertyValueType.UInt64:
+                WriteStruct((ulong)value);
+                break;
+
+            case PropertyValueType.Float:
+                WriteStruct((float)value);
+                break;
+
+            case PropertyValueType.Binary:
+                var binaryBytes = (byte[])value;
+                _buffer.AddRange(binaryBytes);
+                if (_options.Schema == SchemaVersion.V1)
+                    _currentOffset += (uint)binaryBytes.Length;
+                else
+                    _currentOffsetV2 += (ulong)binaryBytes.Length;
+                break;
+
             default:
                 throw new ArgumentException($"Unsupported property value type: {type}");
         }
@@ -186,7 +209,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
     /// <summary>
     /// Writes a symbol node to the buffer
     /// </summary>
-    public uint WriteSymbolNode(ushort symbolId, ushort nodeType, uint sourceStart, uint sourceLength,
+    public uint WriteSymbolNode(ushort symbolId, ushort nod
+eType, uint sourceStart, uint sourceLength,
         IReadOnlyList<uint>? packedNodeOffsets = null, IReadOnlyList<(string key, PropertyValueType type, object value)>? properties = null)
     {
         if (_options.Schema == SchemaVersion.V2)
@@ -231,7 +255,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
     /// <summary>
     /// Writes a symbol node to the buffer using V2 schema
     /// </summary>
-    private ulong WriteSymbolNodeV2(uint symbolId, uint nodeType, uint sourceStart, uint sourceLength,
+    private ulong WriteSymbolNodeV2(uint symbolId, uint nodeType, uint sourceStart
+, uint sourceLength,
         IReadOnlyList<uint>? packedNodeOffsets = null, IReadOnlyList<(string key, PropertyValueType type, object value)>? properties = null)
     {
         // Write packed nodes list with 64-bit offsets
@@ -276,7 +301,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
         {
             return (uint)WritePackedNodeV2(ruleId, childNodeOffsets, cpgEdges);
         }
-        
+     
+   
         // V1 implementation
         // Write child nodes list
         var childNodesOffset = childNodeOffsets?.Count > 0 
@@ -332,7 +358,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
         // V1 implementation
         // Write source text
         var sourceTextOffset = _currentOffset;
-        var sourceBytes = Encoding.UTF8.GetBytes(sourceText);
+        var so
+urceBytes = Encoding.UTF8.GetBytes(sourceText);
         _buffer.AddRange(sourceBytes);
         _currentOffset += (uint)sourceBytes.Length;
 
@@ -383,7 +410,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
         _currentOffsetV2 += (ulong)sourceBytes.Length;
 
         // Write interval tree index
-        var intervalTreeOffsetV2 = _currentOffsetV2;
+        var intervalTreeOffsetV2 = _current
+OffsetV2;
         var intervalTreeBytes = _intervalTree.Serialize();
         _buffer.AddRange(intervalTreeBytes);
         _currentOffsetV2 += (ulong)intervalTreeBytes.Length;
@@ -437,7 +465,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
         _currentOffset += (uint)sourceBytes.Length;
 
         // Write interval tree index to buffer
-        var intervalTreeOffset = _currentOffset;
+        var intervalTreeOffset = _currentOf
+fset;
         var intervalTreeBytes = _intervalTree.Serialize();
         _buffer.AddRange(intervalTreeBytes);
         _currentOffset += (uint)intervalTreeBytes.Length;
@@ -490,7 +519,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
 
         // Create and write V2 header
         _headerV2 = new GraphHeaderV2(
-            GraphHeaderV2.MAGIC_NUMBER,
+            GraphHeaderV2
+.MAGIC_NUMBER,
             GraphHeaderV2.SCHEMA_VERSION,
             (ushort)GraphFlags.FullyParsed,
             rootNodeOffset,
@@ -549,6 +579,10 @@ public sealed class CognitiveGraphBuilder : IDisposable
             PropertyValueType.UInt32 => sizeof(uint),
             PropertyValueType.Boolean => sizeof(byte),
             PropertyValueType.Double => sizeof(double),
+            PropertyValueType.Int64 => sizeof(long),
+            PropertyValueType.UInt64 => sizeof(ulong),
+            PropertyValueType.Float => sizeof(float),
+            PropertyValueType.Binary => (uint)((byte[])value).Length,
             _ => throw new ArgumentException($"Unsupported property value type: {type}")
         };
     }
@@ -557,7 +591,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
     {
         if (!_disposed)
         {
-            _disposed = true;
+            _disposed =
+ true;
         }
     }
 }

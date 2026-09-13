@@ -39,7 +39,8 @@ The foundation of CognitiveGraph is its zero-allocation memory access pattern:
 
 Traditional Abstract Syntax Trees (ASTs) cannot represent syntactic ambiguity. CognitiveGraph solves this with SPPF:
 
-- **Ambiguity Preservation**: Multiple parse interpretations coexist in the same structure
+- **Ambiguity Preservation**: Multiple parse interpretations coexist
+ in the same structure
 - **Packed Nodes**: Represent alternative parse trees compactly
 - **Efficient Storage**: Shared subtrees reduce memory overhead
 - **Complete Coverage**: No loss of parsing information
@@ -89,7 +90,8 @@ Beyond syntax, CognitiveGraph captures semantic relationships through CPG edges:
 │                Schema Layer                     │
 ├─────────────────────────────────────────────────┤
 │    GraphHeader │ NodeData │ EdgeData           │
-└─────────────────────────────────────────────────┘
+└────────────────────────────────
+─────────────────┘
 ```
 
 #### 1. Schema Layer (`CognitiveGraph.Schema`)
@@ -140,22 +142,21 @@ Advanced graph traversal and analysis:
 
 ## Memory Layout Details
 
-### Graph Header (40 bytes)
+### Graph Header (32 bytes)
 
 ```c
-struct GraphHeader {
-    uint32_t magic_number;      // "COGN" (0x434F474E)
-    uint16_t version;           // Schema version
-    uint16_t flags;             // Feature flags
-    uint32_t root_node_offset;  // Offset to root SymbolNode
-    uint32_t symbol_count;      // Number of symbol nodes
-    uint32_t packed_count;      // Number of packed nodes
-    uint32_t edge_count;        // Number of CPG edges
-    uint32_t property_count;    // Number of properties
-    uint32_t string_pool_offset; // Offset to string data
-    uint32_t source_text_offset; // Offset to source code
-    uint32_t total_size;        // Total buffer size
+struct GraphHeader {                 // [StructLayout(Sequential, Pack = 1)]
+    uint32_t magic_number;          // "COGN" (0x434F474E)
+    uint16_t version;               // Schema version (1 for V1)
+    uint16_t flags;                 // Graph flags (FullyParsed, HasSyntaxErrors, ...)
+    uint32_t root_node_offset;      // Offset to root SymbolNode
+    uint32_t node_count;            // Total number of symbol/packed nodes
+    uint32_t edge_count;            // Total number of CPG edges
+    uint32_t source_text_length;    // Length of the original source text
+    uint32_t source_text_offset;    // Offset to the source text copy
+    uint32_t interval_tree_offset;  // Offset to the spatial interval-tree index
 };
+// Total: 4 + 2 + 2 + 6×4 = 32 bytes (GraphHeader.SIZE)
 ```
 
 ### Symbol Node Layout
@@ -203,7 +204,8 @@ struct SymbolNodeData {
 | Property Access | ~10ns | 0 bytes | Zero allocation |
 | Child Iteration | ~5ns/child | 0 bytes | Direct array access |
 | Ambiguity Resolution | ~100ns | 0 bytes | Packed node enumeration |
-| CPG Edge Traversal | ~20ns/edge | 0 bytes | Offset-based navigation |
+| CPG Edge Traversal | ~20ns/edge | 0 bytes | Offset-based
+ navigation |
 
 ## Thread Safety
 
@@ -287,7 +289,8 @@ public class CognitiveLanguageServer
 }
 ```
 
-### Build Pipeline Integration
+### Build Pipeline Int
+egration
 
 ```csharp
 // Batch processing for CI/CD
@@ -345,7 +348,8 @@ Traditional code analysis tools suffer from memory overhead and allocation press
 Abstract Syntax Trees force a single parse interpretation, losing information:
 
 - **Ambiguity is Common**: Real programming languages have inherent ambiguities
-- **Complete Information**: SPPF preserves all possible interpretations
+- **Complete Information**: SPPF preserves all possible interp
+retations
 - **Analysis Flexibility**: Different analyses can choose different interpretations
 - **Parser Independence**: Works with any parsing technology
 

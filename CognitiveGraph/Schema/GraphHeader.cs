@@ -63,7 +63,8 @@ public readonly struct GraphHeader
     /// </summary>
     public readonly uint SourceTextLength;
     
-    /// <summary>
+    /// <su
+mmary>
     /// Offset to the start of the source text copy in the buffer
     /// </summary>
     public readonly uint SourceTextOffset;
@@ -98,7 +99,8 @@ public readonly struct GraphHeader
     public const ushort CURRENT_VERSION = 1;
     
     /// <summary>
-    /// Size of the header in bytes
+    /// Size of the header in bytes. The Pack=1 layout is:
+    /// uint(4) + ushort(2) + ushort(2) + 6×uint(24) = 32 bytes.
     /// </summary>
-    public const int SIZE = 40;
+    public const int SIZE = 32;
 }

@@ -64,8 +64,7 @@ public readonly ref struct Property
     /// </summary>
     public PropertyValue GetValue()
     {
-        // F
-irst read the header to get the actual length
+        // First read the header to get the actual length
         var headerSpan = _graph.Slice((int)ValueOffset, PropertyValueHeader.SIZE);
         var header = System.Runtime.InteropServices.MemoryMarshal.Read<PropertyValueHeader>(headerSpan);
         
@@ -133,8 +132,7 @@ public ref struct PropertyEnumerator
         _currentIndex = -1;
     }
 
-    public Pro
-perty Current
+    public Property Current
     {
         get
         {
@@ -204,8 +202,7 @@ public readonly ref struct PropertyValue
     public uint AsUInt32()
     {
         if (Type != PropertyValueType.UInt32)
-            throw new InvalidOperationException($"Property type is {Ty
-pe}, not UInt32");
+            throw new InvalidOperationException($"Property type is {Type}, not UInt32");
 
         return MemoryMarshal.Read<uint>(_dataSpan.Slice(PropertyValueHeader.SIZE));
     }
@@ -320,8 +317,7 @@ public readonly ref struct SymbolNodeOffsetCollection
         }
     }
 
-    /// <summar
-y>
+    /// <summary>
     /// Enumerates all child nodes
     /// </summary>
     public SymbolNodeOffsetEnumerator GetEnumerator() => new(_data, _graph);
@@ -394,8 +390,7 @@ public ref struct PackedNodeOffsetEnumerator
         }
     }
 
-    publ
-ic bool MoveNext()
+    public bool MoveNext()
     {
         _currentIndex++;
         return _currentIndex < _data.Length / sizeof(uint);

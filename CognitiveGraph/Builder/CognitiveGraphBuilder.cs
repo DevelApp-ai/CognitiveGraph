@@ -39,6 +39,9 @@ public sealed class CognitiveGraphBuilder : IDisposable
     private readonly IntervalTree _intervalTree;
     private uint _currentOffset;
     private ulong _currentOffsetV2;
+    private ulong _symbolNodeCount;
+    private ulong _packedNodeCount;
+    private ulong _cpgEdgeCount;
     private GraphHeader _header;
     private GraphHeaderV2 _headerV2;
     private readonly GraphBuilderOptions _options;
@@ -52,7 +55,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _buffer = new List<byte>(_options.InitialCapacity);
-        _stringTable = new Dictionary<string, uint>();
+        _stringTable = new Dictionary<string, ulong>();
         _intervalTree = new IntervalTree();
         
         if (_options.Schema == SchemaVersion.V1)
@@ -138,6 +141,27 @@ public sealed class CognitiveGraphBuilder : IDisposable
                 WriteStruct((double)value);
                 break;
                 
+            case PropertyValueType.Int64:
+                WriteStruct((long)value);
+                break;
+
+            case PropertyValueType.UInt64:
+                WriteStruct((ulong)value);
+                break;
+
+            case PropertyValueType.Float:
+                WriteStruct((float)value);
+                break;
+
+            case PropertyValueType.Binary:
+                var binaryBytes = (byte[])value;
+                _buffer.AddRange(binaryBytes);
+                if (_options.Schema == SchemaVersion.V1)
+                    _currentOffset += (uint)binaryBytes.Length;
+                else
+                    _currentOffsetV2 += (ulong)binaryBytes.Length;
+                break;
+
             default:
                 throw new ArgumentException($"Unsupported property value type: {type}");
         }
@@ -184,6 +208,34 @@ public sealed class CognitiveGraphBuilder : IDisposable
     }
 
     /// <summary>
+    /// Writes a list of properties to the buffer and returns the offset of the list.
+    /// Used by symbol nodes, CPG edges and other property-bearing records.
+    /// </summary>
+    public ulong WritePropertyList(IReadOnlyList<(string key, PropertyValueType type, object value)>? properties)
+    {
+        if (properties == null || properties.Count == 0)
+            return 0;
+
+        var propertyDataList = new List<PropertyData>(properties.Count);
+        foreach (var (key, type, value) in properties)
+        {
+            var keyOffset = WriteString(key);
+            var valueOffset = WritePropertyValue(type, value);
+            // PropertyData uses uint offsets, cast for V1 compatibility
+            propertyDataList.Add(new PropertyData((uint)keyOffset, (uint)valueOffset));
+        }
+
+        if (_options.Schema == SchemaVersion.V2)
+        {
+            return WriteListV2(propertyDataList, p => { WriteStruct(p); return 0UL; });
+        }
+        else
+        {
+            return WriteList(propertyDataList, p => { WriteStruct(p); return 0; });
+        }
+    }
+
+    /// <summary>
     /// Writes a symbol node to the buffer
     /// </summary>
     public uint WriteSymbolNode(ushort symbolId, ushort nodeType, uint sourceStart, uint sourceLength,
@@ -224,6 +276,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
         
         // Add to interval tree for spatial indexing
         _intervalTree.Add(sourceStart, sourceStart + sourceLength - 1, nodeOffset);
+        _symbolNodeCount++;
         
         return nodeOffset;
     }
@@ -262,6 +315,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
         
         // Add to interval tree for spatial indexing
         _intervalTree.Add(sourceStart, sourceStart + sourceLength - 1, (uint)nodeOffset);
+        _symbolNodeCount++;
         
         return nodeOffset;
     }
@@ -283,14 +337,18 @@ public sealed class CognitiveGraphBuilder : IDisposable
             : 0u;
 
         // Write CPG edges list
-        var cpgEdgesOffset = cpgEdges?.Count > 0 
-            ? WriteList(cpgEdges, e => { WriteStruct(e); return 0; })
-            : 0u;
+        var cpgEdgesOffset = 0u;
+        if (cpgEdges is { Count: > 0 })
+        {
+            _cpgEdgeCount += (ulong)cpgEdges.Count;
+            cpgEdgesOffset = WriteList(cpgEdges, e => { WriteStruct(e); return 0; });
+        }
 
         // Now write the packed node data and capture its offset
         var nodeOffset = _currentOffset;
         var nodeData = new PackedNodeData(ruleId, childNodesOffset, cpgEdgesOffset);
         WriteStruct(nodeData);
+        _packedNodeCount++;
         
         return nodeOffset;
     }
@@ -306,14 +364,18 @@ public sealed class CognitiveGraphBuilder : IDisposable
             : 0UL;
 
         // Write CPG edges list
-        var cpgEdgesOffsetV2 = cpgEdges?.Count > 0 
-            ? WriteListV2(cpgEdges, e => { WriteStruct(e); return 0UL; })
-            : 0UL;
+        var cpgEdgesOffsetV2 = 0UL;
+        if (cpgEdges is { Count: > 0 })
+        {
+            _cpgEdgeCount += (ulong)cpgEdges.Count;
+            cpgEdgesOffsetV2 = WriteListV2(cpgEdges, e => { WriteStruct(e); return 0UL; });
+        }
 
         // Now write the packed node data and capture its offset
         var nodeOffset = _currentOffsetV2;
         var nodeData = new PackedNodeDataV2(ruleId, childNodesOffsetV2, cpgEdgesOffsetV2);
         WriteStruct(nodeData);
+        _packedNodeCount++;
         
         return nodeOffset;
     }
@@ -342,17 +404,13 @@ public sealed class CognitiveGraphBuilder : IDisposable
         _currentOffset += (uint)intervalTreeBytes.Length;
 
         // Create and write header
-        // TODO: Replace hard-coded node/edge counts with actual calculated values
-        const uint TEMP_NODE_COUNT = 1;  // Root node only for basic graphs
-        const uint TEMP_EDGE_COUNT = 0;  // No edges in basic test graphs
-        
         _header = new GraphHeader(
             GraphHeader.MAGIC_NUMBER,
             GraphHeader.CURRENT_VERSION,
             (ushort)GraphFlags.FullyParsed,
             rootNodeOffset,
-            TEMP_NODE_COUNT,  // Node count (temporary - needs full implementation)
-            TEMP_EDGE_COUNT,  // Edge count (temporary - needs full implementation)
+            (uint)_symbolNodeCount,  // Total symbol nodes written
+            (uint)_cpgEdgeCount,     // Total CPG edges written
             (uint)sourceBytes.Length,
             sourceTextOffset,
             intervalTreeOffset
@@ -393,8 +451,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
             GraphHeaderV2.SCHEMA_VERSION,
             (ushort)GraphFlags.FullyParsed,
             rootNodeOffset,
-            1, // Node count (TODO: calculate actual count)
-            0, // Edge count (TODO: calculate actual count)
+            _symbolNodeCount, // Total symbol nodes written
+            _cpgEdgeCount,    // Total CPG edges written
             (ulong)sourceBytes.Length,
             sourceTextOffsetV2,
             intervalTreeOffsetV2
@@ -442,17 +500,13 @@ public sealed class CognitiveGraphBuilder : IDisposable
         _currentOffset += (uint)intervalTreeBytes.Length;
 
         // Create header
-        // TODO: Replace hard-coded node/edge counts with actual calculated values
-        const uint TEMP_NODE_COUNT = 1;  // Root node only for basic graphs
-        const uint TEMP_EDGE_COUNT = 0;  // No edges in basic test graphs
-        
         _header = new GraphHeader(
             GraphHeader.MAGIC_NUMBER,
             GraphHeader.CURRENT_VERSION,
             (ushort)GraphFlags.FullyParsed,
             rootNodeOffset,
-            TEMP_NODE_COUNT,  // Node count (temporary - needs full implementation)
-            TEMP_EDGE_COUNT,  // Edge count (temporary - needs full implementation)
+            (uint)_symbolNodeCount,  // Total symbol nodes written
+            (uint)_cpgEdgeCount,     // Total CPG edges written
             (uint)sourceBytes.Length,
             sourceTextOffset,
             intervalTreeOffset
@@ -493,8 +547,8 @@ public sealed class CognitiveGraphBuilder : IDisposable
             GraphHeaderV2.SCHEMA_VERSION,
             (ushort)GraphFlags.FullyParsed,
             rootNodeOffset,
-            1, // Node count (TODO: calculate actual count)
-            0, // Edge count (TODO: calculate actual count)
+            _symbolNodeCount, // Total symbol nodes written
+            _cpgEdgeCount,    // Total CPG edges written
             (ulong)sourceBytes.Length,
             sourceTextOffsetV2,
             intervalTreeOffsetV2
@@ -548,6 +602,10 @@ public sealed class CognitiveGraphBuilder : IDisposable
             PropertyValueType.UInt32 => sizeof(uint),
             PropertyValueType.Boolean => sizeof(byte),
             PropertyValueType.Double => sizeof(double),
+            PropertyValueType.Int64 => sizeof(long),
+            PropertyValueType.UInt64 => sizeof(ulong),
+            PropertyValueType.Float => sizeof(float),
+            PropertyValueType.Binary => (uint)((byte[])value).Length,
             _ => throw new ArgumentException($"Unsupported property value type: {type}")
         };
     }

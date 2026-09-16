@@ -46,6 +46,7 @@ public sealed class CognitiveGraph : IDisposable
     private readonly MemoryMappedFile? _mmf;
     private readonly MemoryMappedViewAccessor? _accessor;
     private readonly IMemoryCache _cache;
+    private IntervalTree? _spatialIndex;
     private bool _disposed;
 
     /// <summary>
@@ -364,8 +365,16 @@ public sealed class CognitiveGraph : IDisposable
             return cachedResult;
         }
 
-        // Load interval tree from buffer
-        var intervalTree = IntervalTree.Deserialize(remainingBuffer);
+        // Deserialize the interval tree once and reuse it for every subsequent query.
+        // The buffer is immutable after load, so the tree never needs rebuilding.
+        // Benign race under concurrent first callers: reference assignment is atomic and
+        // the losing caller's tree instance is simply garbage-collected.
+        var intervalTree = _spatialIndex;
+        if (intervalTree == null)
+        {
+            intervalTree = IntervalTree.Deserialize(remainingBuffer);
+            _spatialIndex = intervalTree;
+        }
         
         // Find node offsets at the specified location
         var result = intervalTree.FindNodesAt(byteOffset);

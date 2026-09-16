@@ -18,6 +18,7 @@
 
 
 using System;
+using System.IO.MemoryMappedFiles;
 using System.Runtime.InteropServices;
 using CognitiveGraph.Schema;
 
@@ -27,10 +28,13 @@ namespace CognitiveGraph.Buffer;
 /// High-performance, zero-copy buffer for Schema V1 (Compact Mode).
 /// Uses safe Span-based access with 32-bit offsets. Max file size ~4GB.
 /// </summary>
-public class CompactGraphBuffer : IGraphBuffer
+public unsafe class CompactGraphBuffer : IGraphBuffer
 {
-    private readonly byte[] _buffer;
-    private readonly bool _isOwner;
+    private readonly byte[]? _buffer;
+    private readonly MemoryMappedFile? _mmf;
+    private readonly MemoryMappedViewAccessor? _accessor;
+    private readonly byte* _pinnedPtr;
+    private readonly int _pinnedLength;
     private bool _disposed;
 
     /// <summary>
@@ -39,7 +43,6 @@ public class CompactGraphBuffer : IGraphBuffer
     public CompactGraphBuffer(int capacity)
     {
         _buffer = new byte[capacity];
-        _isOwner = true;
     }
 
     /// <summary>
@@ -48,23 +51,67 @@ public class CompactGraphBuffer : IGraphBuffer
     public CompactGraphBuffer(byte[] data, bool takeOwnership = false)
     {
         _buffer = data ?? throw new ArgumentNullException(nameof(data));
-        _isOwner = takeOwnership;
     }
+
+    /// <summary>
+    /// Creates a zero-copy buffer over a memory-mapped file (V1 file loads).
+    /// The view pointer is acquired once and released on Dispose; all spans
+    /// returned by this buffer point directly into the mapped view.
+    /// </summary>
+    internal CompactGraphBuffer(MemoryMappedFile mmf, MemoryMappedViewAccessor accessor, long length)
+    {
+        if (length > int.MaxValue)
+            throw new NotSupportedException(
+                $"The V1 (Compact) schema supports graphs up to {int.MaxValue} bytes. Use the V2 (Universal) schema for larger graphs.");
+
+        _mmf = mmf ?? throw new ArgumentNullException(nameof(mmf));
+        _accessor = accessor ?? throw new ArgumentNullException(nameof(accessor));
+
+        byte* ptr = null;
+        _accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
+        try
+        {
+            if (ptr == null)
+                throw new InvalidOperationException("Failed to acquire pointer to memory-mapped file");
+
+            _pinnedPtr = ptr;
+            _pinnedLength = (int)length;
+        }
+        catch
+        {
+            if (ptr != null)
+                _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Returns a read-only span over the backing storage: either the managed
+    /// array (in-memory graphs) or the pinned memory-mapped view (file-backed graphs).
+    /// </summary>
+    private ReadOnlySpan<byte> Data => _buffer != null
+        ? new ReadOnlySpan<byte>(_buffer)
+        : new ReadOnlySpan<byte>(_pinnedPtr, _pinnedLength);
+
+    /// <summary>
+    /// Total number of bytes in the backing storage.
+    /// </summary>
+    private int BufferLength => _buffer != null ? _buffer.Length : _pinnedLength;
 
     /// <summary>
     /// Gets the complete buffer as a read-only span
     /// </summary>
-    public ReadOnlySpan<byte> AsSpan() => new(_buffer);
+    public ReadOnlySpan<byte> AsSpan() => Data;
 
     /// <summary>
     /// Gets a slice of the buffer starting at the specified offset
     /// </summary>
     public ReadOnlySpan<byte> Slice(int offset) 
     {
-        if (offset < 0 || offset >= _buffer.Length)
+        if (offset < 0 || offset >= BufferLength)
             throw new ArgumentOutOfRangeException(nameof(offset));
         
-        return new ReadOnlySpan<byte>(_buffer, offset, _buffer.Length - offset);
+        return Data.Slice(offset);
     }
 
     /// <summary>
@@ -72,23 +119,23 @@ public class CompactGraphBuffer : IGraphBuffer
     /// </summary>
     public ReadOnlySpan<byte> Slice(int offset, int length)
     {
-        if (offset < 0 || offset >= _buffer.Length)
+        if (offset < 0 || offset >= BufferLength)
             throw new ArgumentOutOfRangeException(nameof(offset));
-        if (length < 0 || offset + length > _buffer.Length)
+        if (length < 0 || offset + length > BufferLength)
             throw new ArgumentOutOfRangeException(nameof(length));
         
-        return new ReadOnlySpan<byte>(_buffer, offset, length);
+        return Data.Slice(offset, length);
     }
 
     /// <summary>
     /// Gets the total size of the buffer
     /// </summary>
-    public int Length => _buffer.Length;
+    public int Length => BufferLength;
     
     /// <summary>
     /// Gets the total size of the buffer (IGraphBuffer implementation)
     /// </summary>
-    long IGraphBuffer.Length => _buffer.Length;
+    long IGraphBuffer.Length => BufferLength;
 
     /// <summary>
     /// Validates the buffer has a valid graph header
@@ -97,7 +144,7 @@ public class CompactGraphBuffer : IGraphBuffer
     {
         try
         {
-            if (_buffer.Length < GraphHeader.SIZE)
+            if (BufferLength < GraphHeader.SIZE)
                 return false;
 
             var header = MemoryMarshal.Read<GraphHeader>(AsSpan());
@@ -114,7 +161,7 @@ public class CompactGraphBuffer : IGraphBuffer
     /// </summary>
     public GraphHeader GetHeader()
     {
-        if (_buffer.Length < GraphHeader.SIZE)
+        if (BufferLength < GraphHeader.SIZE)
             throw new InvalidOperationException("Buffer too small for header");
 
         return MemoryMarshal.Read<GraphHeader>(AsSpan());
@@ -126,7 +173,7 @@ public class CompactGraphBuffer : IGraphBuffer
     public T Read<T>(uint offset) where T : unmanaged
     {
         var size = Marshal.SizeOf<T>();
-        if (offset + size > _buffer.Length)
+        if (offset + size > BufferLength)
             throw new ArgumentOutOfRangeException(nameof(offset));
 
         return MemoryMarshal.Read<T>(Slice((int)offset, size));
@@ -137,7 +184,7 @@ public class CompactGraphBuffer : IGraphBuffer
     /// </summary>
     public string ReadString(uint offset)
     {
-        if (offset >= _buffer.Length)
+        if (offset >= BufferLength)
             throw new ArgumentOutOfRangeException(nameof(offset));
 
         var span = Slice((int)offset);
@@ -172,11 +219,12 @@ public class CompactGraphBuffer : IGraphBuffer
     /// <summary>
     /// Gets the underlying buffer for advanced scenarios (use with caution)
     /// </summary>
-    internal byte[] GetInternalBuffer() => _buffer;
+    internal byte[] GetInternalBuffer() => _buffer 
+        ?? throw new InvalidOperationException("File-backed buffers do not expose a managed internal array.");
 
     // IGraphBuffer interface implementations
     
-    byte IGraphBuffer.ReadByte(long offset) => _buffer[offset];
+    byte IGraphBuffer.ReadByte(long offset) => Slice((int)offset, 1)[0];
     
     short IGraphBuffer.ReadInt16(long offset) => MemoryMarshal.Read<short>(Slice((int)offset, sizeof(short)));
     
@@ -194,10 +242,17 @@ public class CompactGraphBuffer : IGraphBuffer
 
     public void Dispose()
     {
-        if (!_disposed && _isOwner)
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        if (_accessor != null)
         {
-            // In a real implementation, we might need to handle memory-mapped files here
-            _disposed = true;
+            if (_pinnedPtr != null)
+                _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+            _accessor.Dispose();
+            _mmf?.Dispose();
         }
     }
 }

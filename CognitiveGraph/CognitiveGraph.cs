@@ -122,16 +122,17 @@ public sealed class CognitiveGraph : IDisposable
             
             if (_schemaVersion == SchemaVersion.V1)
             {
-                // V1: Use safe span-based buffer (for files < 4GB)
-                unsafe
-                {
-                    var ptr = (byte*)_accessor.SafeMemoryMappedViewHandle.DangerousGetHandle();
-                    var span = new ReadOnlySpan<byte>(ptr, (int)fileLength);
-                    _bufferV1 = new CognitiveGraphBuffer(span.ToArray(), takeOwnership: false);
-                }
+                // V1: Use a span-based buffer pinned over the memory-mapped view (files < 4GB).
+                // The buffer acquires the view pointer once (AcquirePointer) and releases it on
+                // Dispose, serving read-only spans directly from the mapped view - so loading a
+                // V1 graph file no longer copies the whole file into a managed byte[].
+                _bufferV1 = new CognitiveGraphBuffer(_mmf, _accessor, fileLength);
                 
                 if (!_bufferV1.IsValidGraph())
+                {
+                    _bufferV1.Dispose();
                     throw new ArgumentException($"File does not contain a valid Cognitive Graph: {filePath}");
+                }
                 
                 _headerV1 = _bufferV1.GetHeader();
             }

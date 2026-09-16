@@ -18,6 +18,7 @@
 
 
 using System;
+using System.IO.MemoryMappedFiles;
 using System.Runtime.InteropServices;
 using CognitiveGraph.Schema;
 
@@ -42,6 +43,14 @@ public sealed class CognitiveGraphBuffer : CompactGraphBuffer
     /// Creates a buffer view over existing data (for memory-mapped files, etc.)
     /// </summary>
     public CognitiveGraphBuffer(byte[] data, bool takeOwnership = false) : base(data, takeOwnership)
+    {
+    }
+
+    /// <summary>
+    /// Creates a zero-copy buffer view over a memory-mapped file
+    /// </summary>
+    internal CognitiveGraphBuffer(MemoryMappedFile mmf, MemoryMappedViewAccessor accessor, long length) 
+        : base(mmf, accessor, length)
     {
     }
 }

@@ -54,8 +54,7 @@ public sealed unsafe class UniversalGraphBuffer : IGraphBuffer
 
         try
         {
-            _mmf = MemoryMappedFile.CreateFromFile(filePath, System.IO.FileMode.Open, null, 0, MemoryMappedFileAccess.Rea
-d);
+            _mmf = MemoryMappedFile.CreateFromFile(filePath, System.IO.FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
             _accessor = _mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
             _length = new System.IO.FileInfo(filePath).Length;
 
@@ -125,8 +124,7 @@ d);
     /// </summary>
     public byte ReadByte(long offset)
     {
-        ValidateOffset(offset, 
-sizeof(byte));
+        ValidateOffset(offset, sizeof(byte));
         return *(_ptr + offset);
     }
 
@@ -204,8 +202,7 @@ sizeof(byte));
     }
 
     /// <summary>
-    /// Gets the V2 heade
-r from the buffer
+    /// Gets the V2 header from the buffer
     /// </summary>
     public GraphHeaderV2 GetHeaderV2()
     {

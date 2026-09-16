@@ -30,17 +30,24 @@ namespace CognitiveGraph.Accessors;
 /// </summary>
 public readonly ref struct SymbolNode
 {
+    private readonly uint _offset;
     private readonly ReadOnlySpan<byte> _dataSpan;
     private readonly CognitiveGraphBuffer _graph;
 
-    internal SymbolNode(ReadOnlySpan<byte> dataSpan, CognitiveGraphBuffer graph)
+    internal SymbolNode(uint offset, ReadOnlySpan<byte> dataSpan, CognitiveGraphBuffer graph)
     {
         if (dataSpan.Length < SymbolNodeData.SIZE)
             throw new ArgumentException("Data span too small for SymbolNode");
         
+        _offset = offset;
         _dataSpan = dataSpan;
         _graph = graph;
     }
+
+    /// <summary>
+    /// Absolute byte offset of this node within the graph buffer
+    /// </summary>
+    public uint Offset => _offset;
 
     /// <summary>
     /// Identifier for the grammar symbol (terminal/non-terminal)

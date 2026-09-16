@@ -196,7 +196,7 @@ public sealed class CognitiveGraph : IDisposable
             throw new InvalidOperationException("GetRootNode() is only available for V1 schema. Use GetRootNodeV2() for V2.");
         
         var rootSpan = _bufferV1.Slice((int)_headerV1.Value.RootNodeOffset, SymbolNodeData.SIZE);
-        return new SymbolNode(rootSpan, _bufferV1);
+        return new SymbolNode(_headerV1.Value.RootNodeOffset, rootSpan, _bufferV1);
     }
 
     /// <summary>
@@ -248,7 +248,7 @@ public sealed class CognitiveGraph : IDisposable
             throw new InvalidOperationException("GetNodeAt() is only available for V1 schema. Use GetNodeAtV2() for V2.");
         
         var nodeSpan = _bufferV1.Slice((int)offset, SymbolNodeData.SIZE);
-        return new SymbolNode(nodeSpan, _bufferV1);
+        return new SymbolNode(offset, nodeSpan, _bufferV1);
     }
 
     /// <summary>

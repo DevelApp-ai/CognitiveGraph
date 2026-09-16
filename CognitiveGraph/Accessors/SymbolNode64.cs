@@ -39,6 +39,11 @@ public readonly unsafe ref struct SymbolNode64
     }
 
     /// <summary>
+    /// Absolute byte offset of this node within the graph buffer
+    /// </summary>
+    public long Offset => _offset;
+
+    /// <summary>
     /// Identifier for the grammar symbol (terminal/non-terminal)
     /// </summary>
     public uint SymbolID => _buffer.ReadUInt32(_offset);

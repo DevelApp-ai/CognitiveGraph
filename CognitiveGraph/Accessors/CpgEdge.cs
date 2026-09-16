@@ -62,7 +62,7 @@ public readonly ref struct CpgEdge
     public SymbolNode GetTargetNode()
     {
         var targetSpan = _graph.Slice((int)TargetNodeOffset, SymbolNodeData.SIZE);
-        return new SymbolNode(targetSpan, _graph);
+        return new SymbolNode(TargetNodeOffset, targetSpan, _graph);
     }
 
     /// <summary>

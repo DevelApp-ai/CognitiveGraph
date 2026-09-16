@@ -313,7 +313,7 @@ public readonly ref struct SymbolNodeOffsetCollection
 
             var offset = MemoryMarshal.Read<uint>(_data.Slice(index * sizeof(uint)));
             var nodeSpan = _graph.Slice((int)offset, SymbolNodeData.SIZE);
-            return new SymbolNode(nodeSpan, _graph);
+            return new SymbolNode(offset, nodeSpan, _graph);
         }
     }
 
@@ -419,7 +419,7 @@ public ref struct SymbolNodeOffsetEnumerator
         {
             var offset = MemoryMarshal.Read<uint>(_data.Slice(_currentIndex * sizeof(uint)));
             var nodeSpan = _graph.Slice((int)offset, SymbolNodeData.SIZE);
-            return new SymbolNode(nodeSpan, _graph);
+            return new SymbolNode(offset, nodeSpan, _graph);
         }
     }
 

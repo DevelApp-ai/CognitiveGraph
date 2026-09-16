@@ -29,8 +29,6 @@ The foundation of CognitiveGraph is its zero-allocation memory access pattern:
 ├─────────────────────────────────────────────────────┤
 │ Properties Section                                  │
 ├─────────────────────────────────────────────────────┤
-│ String Pool Section                                 │
-├─────────────────────────────────────────────────────┤
 │ Source Text Section                                 │
 └─────────────────────────────────────────────────────┘
 ```
@@ -192,9 +190,12 @@ struct SymbolNodeData {
 - **Memory Overhead**: ~10-15% over raw AST representation
 - **Ambiguity Storage**: Logarithmic compression through sharing
 - **Property Storage**: Variant-typed, compact representation
-- **String Deduplication**: Shared string pool reduces redundancy
+- **String Storage**: Property keys and string values are stored inline in the properties section; the builder deduplicates property keys at build time via a dictionary (there is no separate string pool section in the on-disk layout)
 
 ### Benchmark Results
+
+> **Note:** These figures are design targets, not measured results. The repository does
+> not yet contain a benchmark suite; tracked follow-up: add BenchmarkDotNet projects.
 
 | Operation | Time | Memory | Notes |
 |-----------|------|---------|-------|

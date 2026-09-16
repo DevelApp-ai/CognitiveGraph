@@ -23,7 +23,7 @@ A revolutionary approach to code analysis that unifies syntactic ambiguity handl
 - **Graph Traversal**: Efficient navigation through complex code structures
 
 ### Production Ready
-- **Comprehensive Testing**: 47 unit tests covering core functionality, performance, and edge cases
+- **Comprehensive Testing**: 73 unit tests covering core functionality, performance, and edge cases
 - **Multi-Platform CI/CD**: Automated testing on Windows, Linux, and macOS
 - **NuGet Distribution**: Ready-to-use package with complete API documentation
 - **Performance Optimized**: Designed for large codebases with minimal GC pressure
@@ -201,6 +201,10 @@ dotnet pack CognitiveGraph/CognitiveGraph.csproj --configuration Release
 - **GC Pressure**: Minimal due to zero-allocation accessor pattern
 
 ### Benchmarks
+
+> **Note:** These figures are design targets, not measured results. The repository does
+> not yet contain a benchmark suite; tracked follow-up: add BenchmarkDotNet projects.
+
 | Operation | Time | Memory |
 |-----------|------|---------|
 | Graph Creation (1K nodes) | <1ms | ~50KB |

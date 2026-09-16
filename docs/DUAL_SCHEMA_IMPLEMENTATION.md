@@ -124,7 +124,7 @@ Following TDS Section 3.1 exactly: CognitiveGraph constructor reads the 6-byte p
 ## Testing
 
 - **Unit tests** verify struct sizes, alignments, and field access
-- **All existing tests pass** (58 tests, 0 failures)
+- **All existing tests pass** (verified via `dotnet test`; see the test project for the current count)
 - Backward compatibility verified through existing test suite
 - Builder can create both V1 and V2 graphs
 - CognitiveGraph can read both V1 and V2 files

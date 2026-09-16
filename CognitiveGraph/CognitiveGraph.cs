@@ -432,20 +432,15 @@ public sealed class CognitiveGraph : IDisposable
 
     /// <summary>
     /// Upgrades a V1 graph file to V2 format.
-    /// 
-    /// NOTE: This is a BASIC implementation that only handles the root node and source text.
-    /// A full production implementation would need to:
-    /// 1. Traverse all symbol nodes in the V1 graph
-    /// 2. Copy all packed nodes and their child relationships
-    /// 3. Copy all properties
-    /// 4. Copy all CPG edges
-    /// 5. Rebuild the interval tree index
-    /// 
-    /// This method serves as a foundation and example for V1→V2 conversion.
+    /// Performs a full recursive traversal of the V1 graph and re-emits every symbol
+    /// node, packed node (with children), property and CPG edge through a V2 builder.
+    /// Shared nodes are migrated exactly once (memoized by V1 offset) so the SPPF
+    /// sharing structure of the source graph is preserved, and in-progress guards
+    /// reject cyclic (malformed) graphs instead of recursing forever. The interval
+    /// tree is rebuilt automatically by the builder as nodes are written.
     /// </summary>
     /// <param name="inputPath">Path to the input V1 graph file</param>
     /// <param name="outputPath">Path for the output V2 graph file</param>
-    [Obsolete("This is a basic implementation. Full graph traversal not yet implemented.")]
     public static void Upgrade(string inputPath, string outputPath)
     {
         if (string.IsNullOrWhiteSpace(inputPath))
@@ -466,26 +461,158 @@ public sealed class CognitiveGraph : IDisposable
         if (!v1Header.HasValue)
             throw new InvalidOperationException("Failed to read V1 header");
 
+        var bufferV1 = inputGraph.GetBufferV1()
+            ?? throw new InvalidOperationException("Failed to access the V1 graph buffer");
         var sourceText = inputGraph.GetSourceText();
-        var rootNode = inputGraph.GetRootNode();
 
         // Create V2 builder
         var options = GraphBuilderOptions.Universal();
         using var builder = new CognitiveGraphBuilder(options);
 
-        // Write the root node to V2 format
-        var rootNodeOffset = builder.WriteSymbolNode(
-            rootNode.SymbolID,
-            rootNode.NodeType,
-            rootNode.SourceStart,
-            rootNode.SourceLength,
-            null,  // Packed nodes would need to be traversed and copied
-            null   // Properties would need to be traversed and copied
-        );
+        // Memoization tables (V1 offset -> V2 offset) preserve SPPF node sharing;
+        // the in-progress sets guard against cycles in malformed graphs.
+        var migratedSymbolNodes = new Dictionary<uint, ulong>();
+        var migratedPackedNodes = new Dictionary<uint, ulong>();
+        var inProgressSymbolNodes = new HashSet<uint>();
+        var inProgressPackedNodes = new HashSet<uint>();
+
+        // Helpers over the V1 list layout: [uint count][items...]
+        uint ListCount(uint listOffset) => listOffset == 0 ? 0u : bufferV1.Read<uint>(listOffset);
+
+        uint ListItemAt(uint listOffset, int index) =>
+            bufferV1.Read<uint>(listOffset + sizeof(uint) + (uint)(index * sizeof(uint)));
+
+        (string key, PropertyValueType type, object value) ReadProperty(PropertyData propertyData)
+        {
+            var key = bufferV1.ReadString(propertyData.KeyOffset);
+
+            var header = bufferV1.Read<PropertyValueHeader>(propertyData.ValueOffset);
+            var valueSpan = bufferV1.Slice(
+                (int)(propertyData.ValueOffset + PropertyValueHeader.SIZE), (int)header.Length);
+
+            object value = header.Type switch
+            {
+                PropertyValueType.String => System.Text.Encoding.UTF8.GetString(valueSpan),
+                PropertyValueType.Int32 => MemoryMarshal.Read<int>(valueSpan),
+                PropertyValueType.UInt32 => MemoryMarshal.Read<uint>(valueSpan),
+                PropertyValueType.Boolean => valueSpan.Length > 0 && valueSpan[0] != 0,
+                PropertyValueType.Double => MemoryMarshal.Read<double>(valueSpan),
+                _ => throw new NotSupportedException(
+                    $"Property '{key}' uses value type {header.Type}, which the V2 builder does not support yet (see issue #15).")
+            };
+
+            return (key, header.Type, value);
+        }
+
+        List<(string key, PropertyValueType type, object value)>? ReadPropertyList(uint listOffset)
+        {
+            var count = (int)ListCount(listOffset);
+            if (count == 0)
+                return null;
+
+            var properties = new List<(string, PropertyValueType, object)>(count);
+            for (int i = 0; i < count; i++)
+            {
+                var propertyOffset = listOffset + sizeof(uint) + (uint)(i * PropertyData.SIZE);
+                properties.Add(ReadProperty(bufferV1.Read<PropertyData>(propertyOffset)));
+            }
+
+            return properties;
+        }
+
+        ulong MigratePackedNode(uint packedNodeOffsetV1)
+        {
+            if (migratedPackedNodes.TryGetValue(packedNodeOffsetV1, out var existingV2))
+                return existingV2;
+            if (!inProgressPackedNodes.Add(packedNodeOffsetV1))
+                throw new InvalidOperationException($"Cycle detected at packed node offset {packedNodeOffsetV1}.");
+
+            var packedData = bufferV1.Read<PackedNodeData>(packedNodeOffsetV1);
+
+            // Migrate child symbol nodes
+            List<uint>? childNodeOffsets = null;
+            var childCount = (int)ListCount(packedData.ChildNodesOffset);
+            if (childCount > 0)
+            {
+                childNodeOffsets = new List<uint>(childCount);
+                for (int i = 0; i < childCount; i++)
+                {
+                    childNodeOffsets.Add((uint)MigrateSymbolNode(ListItemAt(packedData.ChildNodesOffset, i)));
+                }
+            }
+
+            // Migrate CPG edges, re-targeting each edge to the migrated target node
+            List<CpgEdgeData>? cpgEdges = null;
+            var edgeCount = (int)ListCount(packedData.CpgEdgesOffset);
+            if (edgeCount > 0)
+            {
+                cpgEdges = new List<CpgEdgeData>(edgeCount);
+                for (int i = 0; i < edgeCount; i++)
+                {
+                    var edgeOffset = packedData.CpgEdgesOffset + sizeof(uint) + (uint)(i * CpgEdgeData.SIZE);
+                    var edgeData = bufferV1.Read<CpgEdgeData>(edgeOffset);
+
+                    var targetNodeOffsetV2 = MigrateSymbolNode(edgeData.TargetNodeOffset);
+                    var edgeProperties = ReadPropertyList(edgeData.PropertiesOffset);
+
+                    cpgEdges.Add(new CpgEdgeData(
+                        edgeData.EdgeType,
+                        (uint)targetNodeOffsetV2,
+                        edgeProperties != null ? (uint)builder.WritePropertyList(edgeProperties) : 0u,
+                        edgeData.Reserved));
+                }
+            }
+
+            var packedNodeOffsetV2 = builder.WritePackedNode(packedData.RuleID, childNodeOffsets, cpgEdges);
+
+            inProgressPackedNodes.Remove(packedNodeOffsetV1);
+            migratedPackedNodes[packedNodeOffsetV1] = packedNodeOffsetV2;
+            return packedNodeOffsetV2;
+        }
+
+        ulong MigrateSymbolNode(uint nodeOffsetV1)
+        {
+            if (migratedSymbolNodes.TryGetValue(nodeOffsetV1, out var existingV2))
+                return existingV2;
+            if (!inProgressSymbolNodes.Add(nodeOffsetV1))
+                throw new InvalidOperationException($"Cycle detected at symbol node offset {nodeOffsetV1}.");
+
+            var node = inputGraph.GetNodeAt(nodeOffsetV1);
+
+            // Migrate packed nodes (derivations)
+            List<uint>? packedNodeOffsets = null;
+            var packedCount = (int)ListCount(node.PackedNodesOffset);
+            if (packedCount > 0)
+            {
+                packedNodeOffsets = new List<uint>(packedCount);
+                for (int i = 0; i < packedCount; i++)
+                {
+                    packedNodeOffsets.Add((uint)MigratePackedNode(ListItemAt(node.PackedNodesOffset, i)));
+                }
+            }
+
+            // Migrate properties
+            var properties = ReadPropertyList(node.PropertiesOffset);
+
+            var nodeOffsetV2 = builder.WriteSymbolNode(
+                node.SymbolID,
+                node.NodeType,
+                node.SourceStart,
+                node.SourceLength,
+                packedNodeOffsets,
+                properties);
+
+            inProgressSymbolNodes.Remove(nodeOffsetV1);
+            migratedSymbolNodes[nodeOffsetV1] = nodeOffsetV2;
+            return nodeOffsetV2;
+        }
+
+        // Migrate the whole graph starting at the root
+        var rootNodeOffsetV2 = MigrateSymbolNode(v1Header.Value.RootNodeOffset);
 
         // Build and write to file
         using var outputStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
-        builder.Build(outputStream, rootNodeOffset, sourceText);
+        builder.Build(outputStream, (uint)rootNodeOffsetV2, sourceText);
     }
 
     public void Dispose()

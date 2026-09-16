@@ -184,6 +184,34 @@ public sealed class CognitiveGraphBuilder : IDisposable
     }
 
     /// <summary>
+    /// Writes a list of properties to the buffer and returns the offset of the list.
+    /// Used by symbol nodes, CPG edges and other property-bearing records.
+    /// </summary>
+    public ulong WritePropertyList(IReadOnlyList<(string key, PropertyValueType type, object value)>? properties)
+    {
+        if (properties == null || properties.Count == 0)
+            return 0;
+
+        var propertyDataList = new List<PropertyData>(properties.Count);
+        foreach (var (key, type, value) in properties)
+        {
+            var keyOffset = WriteString(key);
+            var valueOffset = WritePropertyValue(type, value);
+            // PropertyData uses uint offsets, cast for V1 compatibility
+            propertyDataList.Add(new PropertyData((uint)keyOffset, (uint)valueOffset));
+        }
+
+        if (_options.Schema == SchemaVersion.V2)
+        {
+            return WriteListV2(propertyDataList, p => { WriteStruct(p); return 0UL; });
+        }
+        else
+        {
+            return WriteList(propertyDataList, p => { WriteStruct(p); return 0; });
+        }
+    }
+
+    /// <summary>
     /// Writes a symbol node to the buffer
     /// </summary>
     public uint WriteSymbolNode(ushort symbolId, ushort nodeType, uint sourceStart, uint sourceLength,

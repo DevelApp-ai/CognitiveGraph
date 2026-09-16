@@ -258,8 +258,13 @@ public sealed class CognitiveGraph : IDisposable
         if (_schemaVersion != SchemaVersion.V2 || _bufferV2 == null)
             throw new InvalidOperationException("GetNodeAtV2() is only available for V2 schema. Use GetNodeAt() for V1.");
         
-        var universalBuffer = (UniversalGraphBuffer)_bufferV2;
-        return new SymbolNode64(universalBuffer, (long)offset);
+        if (_bufferV2 is UniversalGraphBuffer universalBuffer)
+            return new SymbolNode64(universalBuffer, (long)offset);
+
+        // In-memory V2 graphs (byte arrays) reuse the V1 buffer and cannot
+        // provide V2 accessors. Match the GetRootNodeV2() contract instead
+        // of throwing an InvalidCastException from the unconditional cast.
+        throw new NotSupportedException("V2 accessor methods require file-based graphs. Use GetSourceText() and GetStatistics() for in-memory V2 graphs.");
     }
 
     /// <summary>

@@ -140,21 +140,20 @@ Advanced graph traversal and analysis:
 
 ## Memory Layout Details
 
-### Graph Header (40 bytes)
+### Graph Header (32 bytes)
 
 ```c
-struct GraphHeader {
-    uint32_t magic_number;      // "COGN" (0x434F474E)
-    uint16_t version;           // Schema version
-    uint16_t flags;             // Feature flags
-    uint32_t root_node_offset;  // Offset to root SymbolNode
-    uint32_t symbol_count;      // Number of symbol nodes
-    uint32_t packed_count;      // Number of packed nodes
-    uint32_t edge_count;        // Number of CPG edges
-    uint32_t property_count;    // Number of properties
-    uint32_t string_pool_offset; // Offset to string data
-    uint32_t source_text_offset; // Offset to source code
-    uint32_t total_size;        // Total buffer size
+struct GraphHeader {                 // [StructLayout(Sequential, Pack = 1)]
+    uint32_t magic_number;          // "COGN" (0x434F474E)
+    uint16_t version;               // Schema version (1 for V1)
+    uint16_t flags;                 // Graph flags (FullyParsed, HasSyntaxErrors, ...)
+    uint32_t root_node_offset;      // Offset to root SymbolNode
+    uint32_t node_count;            // Total number of symbol/packed nodes
+    uint32_t edge_count;            // Total number of CPG edges
+    uint32_t source_text_length;    // Length of the original source text
+    uint32_t source_text_offset;    // Offset to the source text copy
+    uint32_t interval_tree_offset;  // Offset to the spatial interval-tree index
+// Total: 4 + 2 + 2 + 6×4 = 32 bytes (GraphHeader.SIZE)
 };
 ```
 

@@ -54,7 +54,8 @@ public sealed class CognitiveGraph : IDisposable
     public SchemaVersion SchemaVersion => _schemaVersion;
 
     /// <summary>
-    /// Creates a new Cognitive Graph from an existing buffer
+    /// Creates a new Cognitive Graph from an exis
+ting buffer
     /// </summary>
     public CognitiveGraph(CognitiveGraphBuffer buffer)
     {
@@ -100,7 +101,8 @@ public sealed class CognitiveGraph : IDisposable
         if (!File.Exists(filePath))
             throw new FileNotFoundException($"Graph file not found: {filePath}");
 
-        try
+    
+    try
         {
             var fileLength = new FileInfo(filePath).Length;
             
@@ -143,7 +145,8 @@ public sealed class CognitiveGraph : IDisposable
                 if (!_bufferV2.IsValidGraph())
                     throw new ArgumentException($"File does not contain a valid Cognitive Graph: {filePath}");
                 
-                var universalBuffer = (UniversalGraphBuffer)_bufferV2;
+                var universalBuffer = (Univer
+salGraphBuffer)_bufferV2;
                 _headerV2 = universalBuffer.GetHeaderV2();
             }
             else
@@ -195,7 +198,7 @@ public sealed class CognitiveGraph : IDisposable
             throw new InvalidOperationException("GetRootNode() is only available for V1 schema. Use GetRootNodeV2() for V2.");
         
         var rootSpan = _bufferV1.Slice((int)_headerV1.Value.RootNodeOffset, SymbolNodeData.SIZE);
-        return new SymbolNode(rootSpan, _bufferV1);
+        return new SymbolNode(_headerV1.Value.RootNodeOffset, rootSpan, _bufferV1);
     }
 
     /// <summary>
@@ -203,7 +206,8 @@ public sealed class CognitiveGraph : IDisposable
     /// </summary>
     public SymbolNode64 GetRootNodeV2()
     {
-        if (_schemaVersion != SchemaVersion.V2 || _bufferV2 == null || _headerV2 == null)
+        if (_schemaVersion != SchemaVersion.V2 || _bufferV2 == null || _h
+eaderV2 == null)
             throw new InvalidOperationException("GetRootNodeV2() is only available for V2 schema. Use GetRootNode() for V1.");
         
         // For V2 graphs loaded from byte arrays (in-memory), we can still access via IGraphBuffer interface
@@ -245,9 +249,10 @@ public sealed class CognitiveGraph : IDisposable
     {
         if (_schemaVersion != SchemaVersion.V1 || _bufferV1 == null)
             throw new InvalidOperationException("GetNodeAt() is only available for V1 schema. Use GetNodeAtV2() for V2.");
-        
+ 
+       
         var nodeSpan = _bufferV1.Slice((int)offset, SymbolNodeData.SIZE);
-        return new SymbolNode(nodeSpan, _bufferV1);
+        return new SymbolNode(offset, nodeSpan, _bufferV1);
     }
 
     /// <summary>
@@ -301,7 +306,8 @@ public sealed class CognitiveGraph : IDisposable
         {
             return new GraphStatistics
             {
-                NodeCount = _headerV1.Value.NodeCount,
+                NodeCoun
+t = _headerV1.Value.NodeCount,
                 EdgeCount = _headerV1.Value.EdgeCount,
                 SourceLength = _headerV1.Value.SourceTextLength,
                 BufferSize = (uint)_bufferV1.Length
@@ -348,7 +354,8 @@ public sealed class CognitiveGraph : IDisposable
         }
         else
         {
-            return new List<uint>();
+            return new Lis
+t<uint>();
         }
 
         // Try to get from cache first
@@ -411,7 +418,8 @@ public sealed class CognitiveGraph : IDisposable
     /// <summary>
     /// Gets the underlying buffer (for advanced scenarios)
     /// </summary>
-    [Obsolete("Use GetBufferV1() or GetBufferV2() based on SchemaVersion")]
+    [Obsolete("Use GetBufferV1() or GetBufferV2() based on SchemaVer
+sion")]
     internal CognitiveGraphBuffer? GetBuffer() => _bufferV1;
 
     /// <summary>
@@ -457,7 +465,8 @@ public sealed class CognitiveGraph : IDisposable
 
         // Get V1 header and data
         var v1Header = inputGraph.GetHeader();
-        if (!v1Header.HasValue)
+        if (!v1Header.HasValu
+e)
             throw new InvalidOperationException("Failed to read V1 header");
 
         var sourceText = inputGraph.GetSourceText();

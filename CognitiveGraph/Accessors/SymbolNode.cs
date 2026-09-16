@@ -30,17 +30,24 @@ namespace CognitiveGraph.Accessors;
 /// </summary>
 public readonly ref struct SymbolNode
 {
+    private readonly uint _offset;
     private readonly ReadOnlySpan<byte> _dataSpan;
     private readonly CognitiveGraphBuffer _graph;
 
-    internal SymbolNode(ReadOnlySpan<byte> dataSpan, CognitiveGraphBuffer graph)
+    internal SymbolNode(uint offset, ReadOnlySpan<byte> dataSpan, CognitiveGraphBuffer graph)
     {
         if (dataSpan.Length < SymbolNodeData.SIZE)
             throw new ArgumentException("Data span too small for SymbolNode");
         
+        _offset = offset;
         _dataSpan = dataSpan;
         _graph = graph;
     }
+
+    /// <summary>
+    /// Absolute byte offset of this node within the graph buffer
+    /// </summary>
+    public uint Offset => _offset;
 
     /// <summary>
     /// Identifier for the grammar symbol (terminal/non-terminal)
@@ -55,7 +62,8 @@ public readonly ref struct SymbolNode
     /// <summary>
     /// Start character index in the source text
     /// </summary>
-    public uint SourceStart => MemoryMarshal.Read<uint>(_dataSpan.Slice(4));
+    public uint SourceStart => MemoryMarshal.Read<u
+int>(_dataSpan.Slice(4));
 
     /// <summary>
     /// Length of the source text span for this node
@@ -112,6 +120,7 @@ public readonly ref struct SymbolNode
         var listSpan = _graph.GetListSpan(PropertiesOffset, PropertyData.SIZE);
         return new PropertyCollection(listSpan, _graph);
     }
+
 
     /// <summary>
     /// Checks if this node is ambiguous (has multiple packed nodes)

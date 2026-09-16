@@ -39,6 +39,11 @@ public readonly unsafe ref struct SymbolNode64
     }
 
     /// <summary>
+    /// Absolute byte offset of this node within the graph buffer
+    /// </summary>
+    public long Offset => _offset;
+
+    /// <summary>
     /// Identifier for the grammar symbol (terminal/non-terminal)
     /// </summary>
     public uint SymbolID => _buffer.ReadUInt32(_offset);
@@ -56,7 +61,8 @@ public readonly unsafe ref struct SymbolNode64
     /// <summary>
     /// Length of the source text span for this node
     /// </summary>
-    public uint SourceLength => _buffer.ReadUInt32(_offset + 12);
+    public uint SourceLength => _buffer.ReadUInt32(_off
+set + 12);
 
     /// <summary>
     /// End position in the source text (start + length)
@@ -121,7 +127,8 @@ public readonly ref struct PackedNodeOffsetCollection64
     private readonly long _offset;
     private readonly ulong _count;
 
-    internal PackedNodeOffsetCollection64(UniversalGraphBuffer buffer, long offset, ulong count)
+    internal PackedNodeOffsetCollection64(UniversalGraphBuffer b
+uffer, long offset, ulong count)
     {
         _buffer = buffer;
         _offset = offset;
@@ -196,7 +203,8 @@ public readonly ref struct SymbolNodeOffsetCollection64
     private readonly long _offset;
     private readonly ulong _count;
 
-    internal SymbolNodeOffsetCollection64(UniversalGraphBuffer buffer, long offset, ulong count)
+    internal S
+ymbolNodeOffsetCollection64(UniversalGraphBuffer buffer, long offset, ulong count)
     {
         _buffer = buffer;
         _offset = offset;

@@ -63,8 +63,7 @@ public readonly struct GraphHeader
     /// </summary>
     public readonly uint SourceTextLength;
     
-    /// <su
-mmary>
+    /// <summary>
     /// Offset to the start of the source text copy in the buffer
     /// </summary>
     public readonly uint SourceTextOffset;

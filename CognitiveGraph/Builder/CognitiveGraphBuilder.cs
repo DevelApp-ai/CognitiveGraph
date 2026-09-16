@@ -58,7 +58,6 @@ public sealed class CognitiveGraphBuilder : IDisposable
         _stringTable = new Dictionary<string, uint>();
         _intervalTree = new IntervalTree();
         
-
         if (_options.Schema == SchemaVersion.V1)
         {
             _currentOffset = 0;
@@ -119,8 +118,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
             case PropertyValueType.String:
                 var stringBytes = Encoding.UTF8.GetBytes((string)value);
                 _buffer.AddRange(stringBytes);
-                
-if (_options.Schema == SchemaVersion.V1)
+                if (_options.Schema == SchemaVersion.V1)
                     _currentOffset += (uint)stringBytes.Length;
                 else
                     _currentOffsetV2 += (ulong)stringBytes.Length;
@@ -189,10 +187,37 @@ if (_options.Schema == SchemaVersion.V1)
     }
 
     /// <summary>
+    /// Writes a list of properties to the buffer and returns the offset of the list.
+    /// Used by symbol nodes, CPG edges and other property-bearing records.
+    /// </summary>
+    public ulong WritePropertyList(IReadOnlyList<(string key, PropertyValueType type, object value)>? properties)
+    {
+        if (properties == null || properties.Count == 0)
+            return 0;
+
+        var propertyDataList = new List<PropertyData>(properties.Count);
+        foreach (var (key, type, value) in properties)
+        {
+            var keyOffset = WriteString(key);
+            var valueOffset = WritePropertyValue(type, value);
+            // PropertyData uses uint offsets, cast for V1 compatibility
+            propertyDataList.Add(new PropertyData((uint)keyOffset, (uint)valueOffset));
+        }
+
+        if (_options.Schema == SchemaVersion.V2)
+        {
+            return WriteListV2(propertyDataList, p => { WriteStruct(p); return 0UL; });
+        }
+        else
+        {
+            return WriteList(propertyDataList, p => { WriteStruct(p); return 0; });
+        }
+    }
+
+    /// <summary>
     /// Writes a symbol node to the buffer
     /// </summary>
-    public uint WriteSymbolNode(ushort symbolId, ushort nod
-eType, uint sourceStart, uint sourceLength,
+    public uint WriteSymbolNode(ushort symbolId, ushort nodeType, uint sourceStart, uint sourceLength,
         IReadOnlyList<uint>? packedNodeOffsets = null, IReadOnlyList<(string key, PropertyValueType type, object value)>? properties = null)
     {
         if (_options.Schema == SchemaVersion.V2)
@@ -238,8 +263,7 @@ eType, uint sourceStart, uint sourceLength,
     /// <summary>
     /// Writes a symbol node to the buffer using V2 schema
     /// </summary>
-    private ulong WriteSymbolNodeV2(uint symbolId, uint nodeType, uint sourceStart
-, uint sourceLength,
+    private ulong WriteSymbolNodeV2(uint symbolId, uint nodeType, uint sourceStart, uint sourceLength,
         IReadOnlyList<uint>? packedNodeOffsets = null, IReadOnlyList<(string key, PropertyValueType type, object value)>? properties = null)
     {
         // Write packed nodes list with 64-bit offsets
@@ -285,8 +309,7 @@ eType, uint sourceStart, uint sourceLength,
         {
             return (uint)WritePackedNodeV2(ruleId, childNodeOffsets, cpgEdges);
         }
-     
-   
+        
         // V1 implementation
         // Write child nodes list
         var childNodesOffset = childNodeOffsets?.Count > 0 
@@ -350,8 +373,7 @@ eType, uint sourceStart, uint sourceLength,
         // V1 implementation
         // Write source text
         var sourceTextOffset = _currentOffset;
-        var so
-urceBytes = Encoding.UTF8.GetBytes(sourceText);
+        var sourceBytes = Encoding.UTF8.GetBytes(sourceText);
         _buffer.AddRange(sourceBytes);
         _currentOffset += (uint)sourceBytes.Length;
 
@@ -398,8 +420,7 @@ urceBytes = Encoding.UTF8.GetBytes(sourceText);
         _currentOffsetV2 += (ulong)sourceBytes.Length;
 
         // Write interval tree index
-        var intervalTreeOffsetV2 = _current
-OffsetV2;
+        var intervalTreeOffsetV2 = _currentOffsetV2;
         var intervalTreeBytes = _intervalTree.Serialize();
         _buffer.AddRange(intervalTreeBytes);
         _currentOffsetV2 += (ulong)intervalTreeBytes.Length;
@@ -453,8 +474,7 @@ OffsetV2;
         _currentOffset += (uint)sourceBytes.Length;
 
         // Write interval tree index to buffer
-        var intervalTreeOffset = _currentOf
-fset;
+        var intervalTreeOffset = _currentOffset;
         var intervalTreeBytes = _intervalTree.Serialize();
         _buffer.AddRange(intervalTreeBytes);
         _currentOffset += (uint)intervalTreeBytes.Length;
@@ -503,8 +523,7 @@ fset;
 
         // Create and write V2 header
         _headerV2 = new GraphHeaderV2(
-            GraphHeaderV2
-.MAGIC_NUMBER,
+            GraphHeaderV2.MAGIC_NUMBER,
             GraphHeaderV2.SCHEMA_VERSION,
             (ushort)GraphFlags.FullyParsed,
             rootNodeOffset,
@@ -571,8 +590,7 @@ fset;
     {
         if (!_disposed)
         {
-            _disposed =
- true;
+            _disposed = true;
         }
     }
 }

@@ -35,7 +35,7 @@ namespace CognitiveGraph.Builder;
 public sealed class CognitiveGraphBuilder : IDisposable
 {
     private readonly List<byte> _buffer;
-    private readonly Dictionary<string, uint> _stringTable;
+    private readonly Dictionary<string, ulong> _stringTable;
     private readonly IntervalTree _intervalTree;
     private uint _currentOffset;
     private ulong _currentOffsetV2;
@@ -94,7 +94,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
             _currentOffsetV2 += (ulong)(bytes.Length + 1);
         }
         
-        _stringTable[value] = (uint)offset; // Store as uint for compatibility
+        _stringTable[value] = offset;
         return offset;
     }
 
@@ -243,14 +243,13 @@ public sealed class CognitiveGraphBuilder : IDisposable
         var propertiesOffsetV2 = 0UL;
         if (properties?.Count > 0)
         {
-            var propertyDataList = new List<PropertyData>();
+            var propertyDataList = new List<PropertyDataV2>();
             foreach (var (key, type, value) in properties)
             {
                 var keyOffset = WriteString(key);
                 var valueOffset = WritePropertyValue(type, value);
-                // PropertyData uses uint offsets, cast for V1 compatibility
-                // Note: For true V2 support, would need PropertyDataV2 structure
-                propertyDataList.Add(new PropertyData((uint)keyOffset, (uint)valueOffset));
+                // V2 stores full 64-bit property offsets - no truncation
+                propertyDataList.Add(new PropertyDataV2(keyOffset, valueOffset));
             }
             
             propertiesOffsetV2 = WriteListV2(propertyDataList, p => { WriteStruct(p); return 0UL; });

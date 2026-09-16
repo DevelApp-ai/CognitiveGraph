@@ -102,6 +102,17 @@ public readonly unsafe ref struct SymbolNode64
     }
 
     /// <summary>
+    /// Gets all properties for this node
+    /// </summary>
+    public PropertyCollection64 GetProperties()
+    {
+        if (PropertiesOffset == 0)
+            return new PropertyCollection64(_buffer, 0);
+
+        return new PropertyCollection64(_buffer, (long)PropertiesOffset);
+    }
+
+    /// <summary>
     /// Checks if this node is ambiguous (has multiple packed nodes)
     /// </summary>
     public bool IsAmbiguous

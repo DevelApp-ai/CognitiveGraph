@@ -62,8 +62,7 @@ public readonly ref struct SymbolNode
     /// <summary>
     /// Start character index in the source text
     /// </summary>
-    public uint SourceStart => MemoryMarshal.Read<u
-int>(_dataSpan.Slice(4));
+    public uint SourceStart => MemoryMarshal.Read<uint>(_dataSpan.Slice(4));
 
     /// <summary>
     /// Length of the source text span for this node
@@ -120,7 +119,6 @@ int>(_dataSpan.Slice(4));
         var listSpan = _graph.GetListSpan(PropertiesOffset, PropertyData.SIZE);
         return new PropertyCollection(listSpan, _graph);
     }
-
 
     /// <summary>
     /// Checks if this node is ambiguous (has multiple packed nodes)

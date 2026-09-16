@@ -57,8 +57,7 @@ public readonly ref struct CpgEdge
     public uint PropertiesOffset => MemoryMarshal.Read<uint>(_dataSpan.Slice(8));
 
     /// <summary>
-    /// Gets the target node 
-of this edge
+    /// Gets the target node of this edge
     /// </summary>
     public SymbolNode GetTargetNode()
     {
@@ -133,8 +132,7 @@ public readonly ref struct CpgEdgeCollection
     }
 
     /// <summary>
-    /// Enumer
-ates all edges
+    /// Enumerates all edges
     /// </summary>
     public CpgEdgeEnumerator GetEnumerator() => new(_data, _graph);
 
@@ -213,8 +211,7 @@ public ref struct CpgEdgeFilterEnumerator
             if (_currentIndex >= _data.Length / CpgEdgeData.SIZE)
                 return false;
 
-            var offset = _current
-Index * CpgEdgeData.SIZE;
+            var offset = _currentIndex * CpgEdgeData.SIZE;
             var span = _data.Slice(offset, CpgEdgeData.SIZE);
             var edge = new CpgEdge(span, _graph);
             

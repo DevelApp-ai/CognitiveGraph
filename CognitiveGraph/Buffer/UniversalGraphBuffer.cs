@@ -33,7 +33,7 @@ public sealed unsafe class UniversalGraphBuffer : IGraphBuffer
 {
     private readonly MemoryMappedFile? _mmf;
     private readonly MemoryMappedViewAccessor? _accessor;
-    private readonly byte* _ptr;
+    private byte* _ptr;
     private readonly long _length;
     private bool _disposed;
 
@@ -42,6 +42,10 @@ public sealed unsafe class UniversalGraphBuffer : IGraphBuffer
     /// </summary>
     public UniversalGraphBuffer(string filePath)
     {
+        if (!BitConverter.IsLittleEndian)
+            throw new PlatformNotSupportedException(
+                "The CognitiveGraph binary format is little-endian; big-endian hosts are not supported.");
+
         if (string.IsNullOrWhiteSpace(filePath))
             throw new ArgumentException("File path cannot be null or empty", nameof(filePath));
 
@@ -74,6 +78,10 @@ public sealed unsafe class UniversalGraphBuffer : IGraphBuffer
     /// </summary>
     internal UniversalGraphBuffer(MemoryMappedFile mmf, MemoryMappedViewAccessor accessor, long length)
     {
+        if (!BitConverter.IsLittleEndian)
+            throw new PlatformNotSupportedException(
+                "The CognitiveGraph binary format is little-endian; big-endian hosts are not supported.");
+
         _mmf = mmf ?? throw new ArgumentNullException(nameof(mmf));
         _accessor = accessor ?? throw new ArgumentNullException(nameof(accessor));
         _length = length;
@@ -209,6 +217,7 @@ public sealed unsafe class UniversalGraphBuffer : IGraphBuffer
     /// </summary>
     public string ReadString(long offset)
     {
+        EnsureNotDisposed();
         if (offset >= _length || offset < 0)
             throw new ArgumentOutOfRangeException(nameof(offset));
 
@@ -232,8 +241,15 @@ public sealed unsafe class UniversalGraphBuffer : IGraphBuffer
 
     private void ValidateOffset(long offset, long size)
     {
+        EnsureNotDisposed();
         if (offset < 0 || offset + size > _length)
             throw new ArgumentOutOfRangeException(nameof(offset));
+    }
+
+    private void EnsureNotDisposed()
+    {
+        if (_disposed || _ptr == null)
+            throw new ObjectDisposedException(nameof(UniversalGraphBuffer), "The graph buffer has been disposed.");
     }
 
     public void Dispose()
@@ -246,6 +262,7 @@ public sealed unsafe class UniversalGraphBuffer : IGraphBuffer
                 _accessor.Dispose();
             }
             _mmf?.Dispose();
+            _ptr = null;
             _disposed = true;
         }
     }

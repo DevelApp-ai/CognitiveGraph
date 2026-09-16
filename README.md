@@ -28,8 +28,7 @@ A revolutionary approach to code analysis that unifies syntactic ambiguity handl
 - **NuGet Distribution**: Ready-to-use package with complete API documentation
 - **Performance Optimized**: Designed for large codebases with minimal GC pressure
 
-## 
-📦 Installation
+## 📦 Installation
 
 ```bash
 dotnet add package DevelApp.CognitiveGraph
@@ -104,8 +103,7 @@ if (rootNode.IsAmbiguous)
 ### Handling Syntactic Ambiguity
 
 ```csharp
-// Crea
-te an ambiguous expression: "a+b*c" can be parsed as ((a+b)*c) or (a+(b*c))
+// Create an ambiguous expression: "a+b*c" can be parsed as ((a+b)*c) or (a+(b*c))
 var packed1 = builder.WritePackedNode(ruleId: 1); // First interpretation
 var packed2 = builder.WritePackedNode(ruleId: 2); // Second interpretation
 
@@ -182,8 +180,7 @@ dotnet build --configuration Release
 # Run all tests
 dotnet test
 
-# R
-un with coverage
+# Run with coverage
 dotnet test --collect:"XPlat Code Coverage"
 
 # Run performance tests only
@@ -241,8 +238,7 @@ dotnet pack CognitiveGraph/CognitiveGraph.csproj --configuration Release
 7. Open a Pull Request
 
 ### Development Environment
-- Visual Studio 2022 17.8+ or VS Code with
- C# extension
+- Visual Studio 2022 17.8+ or VS Code with C# extension
 - .NET 8.0 SDK
 - Git for version control
 

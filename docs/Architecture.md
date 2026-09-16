@@ -29,8 +29,6 @@ The foundation of CognitiveGraph is its zero-allocation memory access pattern:
 ├─────────────────────────────────────────────────────┤
 │ Properties Section                                  │
 ├─────────────────────────────────────────────────────┤
-│ String Pool Section                                 │
-├─────────────────────────────────────────────────────┤
 │ Source Text Section                                 │
 └─────────────────────────────────────────────────────┘
 ```
@@ -39,7 +37,8 @@ The foundation of CognitiveGraph is its zero-allocation memory access pattern:
 
 Traditional Abstract Syntax Trees (ASTs) cannot represent syntactic ambiguity. CognitiveGraph solves this with SPPF:
 
-- **Ambiguity Preservation**: Multiple parse interpretations coexist in the same structure
+- **Ambiguity Preservation**: Multiple parse interpretations coexist
+ in the same structure
 - **Packed Nodes**: Represent alternative parse trees compactly
 - **Efficient Storage**: Shared subtrees reduce memory overhead
 - **Complete Coverage**: No loss of parsing information
@@ -89,7 +88,8 @@ Beyond syntax, CognitiveGraph captures semantic relationships through CPG edges:
 │                Schema Layer                     │
 ├─────────────────────────────────────────────────┤
 │    GraphHeader │ NodeData │ EdgeData           │
-└─────────────────────────────────────────────────┘
+└────────────────────────────────
+─────────────────┘
 ```
 
 #### 1. Schema Layer (`CognitiveGraph.Schema`)
@@ -152,7 +152,8 @@ struct GraphHeader {
     uint32_t packed_count;      // Number of packed nodes
     uint32_t edge_count;        // Number of CPG edges
     uint32_t property_count;    // Number of properties
-    uint32_t string_pool_offset; // Offset to string data
+    uint32_t string_poo
+l_offset; // Offset to string data
     uint32_t source_text_offset; // Offset to source code
     uint32_t total_size;        // Total buffer size
 };
@@ -193,9 +194,12 @@ struct SymbolNodeData {
 - **Memory Overhead**: ~10-15% over raw AST representation
 - **Ambiguity Storage**: Logarithmic compression through sharing
 - **Property Storage**: Variant-typed, compact representation
-- **String Deduplication**: Shared string pool reduces redundancy
+- **String Storage**: Property keys and string values are stored inline in the properties section; the builder deduplicates property keys at build time via a dictionary (there is no separate string pool section in the on-disk layout)
 
 ### Benchmark Results
+
+> **Note:** These figures are design targets, not measured results. The repository does
+> not yet contain a benchmark suite; tracked follow-up: add BenchmarkDotNet projects.
 
 | Operation | Time | Memory | Notes |
 |-----------|------|---------|-------|
@@ -203,7 +207,8 @@ struct SymbolNodeData {
 | Property Access | ~10ns | 0 bytes | Zero allocation |
 | Child Iteration | ~5ns/child | 0 bytes | Direct array access |
 | Ambiguity Resolution | ~100ns | 0 bytes | Packed node enumeration |
-| CPG Edge Traversal | ~20ns/edge | 0 bytes | Offset-based navigation |
+| CPG Edge Traversal | ~20ns/edge | 0 bytes | Offset-based
+ navigation |
 
 ## Thread Safety
 
@@ -287,7 +292,8 @@ public class CognitiveLanguageServer
 }
 ```
 
-### Build Pipeline Integration
+### Build Pipeline Int
+egration
 
 ```csharp
 // Batch processing for CI/CD
@@ -345,7 +351,8 @@ Traditional code analysis tools suffer from memory overhead and allocation press
 Abstract Syntax Trees force a single parse interpretation, losing information:
 
 - **Ambiguity is Common**: Real programming languages have inherent ambiguities
-- **Complete Information**: SPPF preserves all possible interpretations
+- **Complete Information**: SPPF preserves all possible interp
+retations
 - **Analysis Flexibility**: Different analyses can choose different interpretations
 - **Parser Independence**: Works with any parsing technology
 

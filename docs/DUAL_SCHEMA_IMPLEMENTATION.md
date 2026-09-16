@@ -46,7 +46,8 @@ Zero-allocation ref struct accessors for V2 schema:
 
 - **SymbolNode64**: Accessor for V2 symbol nodes
   - Uses `UniversalGraphBuffer` for data access
-  - 32-bit IDs, 64-bit offsets
+  - 32
+-bit IDs, 64-bit offsets
   - Provides enumerations for packed nodes and properties
   
 - **PackedNode64**: Accessor for V2 packed nodes
@@ -93,7 +94,8 @@ As specified in TDS Section 5.2:
 
 - **CognitiveGraph.Upgrade(inputPath, outputPath)**: Utility method to convert V1 → V2
   - Opens input V1 file
-  - Initializes CognitiveGraphBuilder in V2 mode
+  - Initializes CognitiveGraphBu
+ilder in V2 mode
   - Traverses V1 nodes and writes to V2 builder
   - Produces scale-ready V2 graph
 
@@ -124,7 +126,7 @@ Following TDS Section 3.1 exactly: CognitiveGraph constructor reads the 6-byte p
 ## Testing
 
 - **Unit tests** verify struct sizes, alignments, and field access
-- **All existing tests pass** (58 tests, 0 failures)
+- **All existing tests pass** (verified via `dotnet test`; see the test project for the current count)
 - Backward compatibility verified through existing test suite
 - Builder can create both V1 and V2 graphs
 - CognitiveGraph can read both V1 and V2 files
@@ -133,7 +135,8 @@ Following TDS Section 3.1 exactly: CognitiveGraph constructor reads the 6-byte p
 
 ✅ **All Core Components from TDS Implemented:**
 
-1. ✅ Schema V2 structures (GraphHeaderV2, SymbolNodeDataV2, PackedNodeDataV2)
+1. ✅ Schema V2 structures (GraphHeade
+rV2, SymbolNodeDataV2, PackedNodeDataV2)
 2. ✅ Buffer abstraction (IGraphBuffer, CompactGraphBuffer, UniversalGraphBuffer)
 3. ✅ V2 accessors (SymbolNode64, PackedNode64)
 4. ✅ Builder configuration (GraphBuilderOptions)

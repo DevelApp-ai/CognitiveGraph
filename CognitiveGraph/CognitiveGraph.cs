@@ -55,8 +55,7 @@ public sealed class CognitiveGraph : IDisposable
     public SchemaVersion SchemaVersion => _schemaVersion;
 
     /// <summary>
-    /// Creates a new Cognitive Graph from an exis
-ting buffer
+    /// Creates a new Cognitive Graph from an existing buffer
     /// </summary>
     public CognitiveGraph(CognitiveGraphBuffer buffer)
     {
@@ -102,8 +101,7 @@ ting buffer
         if (!File.Exists(filePath))
             throw new FileNotFoundException($"Graph file not found: {filePath}");
 
-    
-    try
+        try
         {
             var fileLength = new FileInfo(filePath).Length;
             
@@ -125,16 +123,17 @@ ting buffer
             
             if (_schemaVersion == SchemaVersion.V1)
             {
-                // V1: Use safe span-based buffer (for files < 4GB)
-                unsafe
-                {
-                    var ptr = (byte*)_accessor.SafeMemoryMappedViewHandle.DangerousGetHandle();
-                    var span = new ReadOnlySpan<byte>(ptr, (int)fileLength);
-                    _bufferV1 = new CognitiveGraphBuffer(span.ToArray(), takeOwnership: false);
-                }
+                // V1: Use a span-based buffer pinned over the memory-mapped view (files < 4GB).
+                // The buffer acquires the view pointer once (AcquirePointer) and releases it on
+                // Dispose, serving read-only spans directly from the mapped view - so loading a
+                // V1 graph file no longer copies the whole file into a managed byte[].
+                _bufferV1 = new CognitiveGraphBuffer(_mmf, _accessor, fileLength);
                 
                 if (!_bufferV1.IsValidGraph())
+                {
+                    _bufferV1.Dispose();
                     throw new ArgumentException($"File does not contain a valid Cognitive Graph: {filePath}");
+                }
                 
                 _headerV1 = _bufferV1.GetHeader();
             }
@@ -146,8 +145,7 @@ ting buffer
                 if (!_bufferV2.IsValidGraph())
                     throw new ArgumentException($"File does not contain a valid Cognitive Graph: {filePath}");
                 
-                var universalBuffer = (Univer
-salGraphBuffer)_bufferV2;
+                var universalBuffer = (UniversalGraphBuffer)_bufferV2;
                 _headerV2 = universalBuffer.GetHeaderV2();
             }
             else
@@ -207,8 +205,7 @@ salGraphBuffer)_bufferV2;
     /// </summary>
     public SymbolNode64 GetRootNodeV2()
     {
-        if (_schemaVersion != SchemaVersion.V2 || _bufferV2 == null || _h
-eaderV2 == null)
+        if (_schemaVersion != SchemaVersion.V2 || _bufferV2 == null || _headerV2 == null)
             throw new InvalidOperationException("GetRootNodeV2() is only available for V2 schema. Use GetRootNode() for V1.");
         
         // For V2 graphs loaded from byte arrays (in-memory), we can still access via IGraphBuffer interface
@@ -250,8 +247,7 @@ eaderV2 == null)
     {
         if (_schemaVersion != SchemaVersion.V1 || _bufferV1 == null)
             throw new InvalidOperationException("GetNodeAt() is only available for V1 schema. Use GetNodeAtV2() for V2.");
- 
-       
+        
         var nodeSpan = _bufferV1.Slice((int)offset, SymbolNodeData.SIZE);
         return new SymbolNode(nodeSpan, _bufferV1);
     }
@@ -264,8 +260,13 @@ eaderV2 == null)
         if (_schemaVersion != SchemaVersion.V2 || _bufferV2 == null)
             throw new InvalidOperationException("GetNodeAtV2() is only available for V2 schema. Use GetNodeAt() for V1.");
         
-        var universalBuffer = (UniversalGraphBuffer)_bufferV2;
-        return new SymbolNode64(universalBuffer, (long)offset);
+        if (_bufferV2 is UniversalGraphBuffer universalBuffer)
+            return new SymbolNode64(universalBuffer, (long)offset);
+
+        // In-memory V2 graphs (byte arrays) reuse the V1 buffer and cannot
+        // provide V2 accessors. Match the GetRootNodeV2() contract instead
+        // of throwing an InvalidCastException from the unconditional cast.
+        throw new NotSupportedException("V2 accessor methods require file-based graphs. Use GetSourceText() and GetStatistics() for in-memory V2 graphs.");
     }
 
     /// <summary>
@@ -307,8 +308,7 @@ eaderV2 == null)
         {
             return new GraphStatistics
             {
-                NodeCoun
-t = _headerV1.Value.NodeCount,
+                NodeCount = _headerV1.Value.NodeCount,
                 EdgeCount = _headerV1.Value.EdgeCount,
                 SourceLength = _headerV1.Value.SourceTextLength,
                 BufferSize = (uint)_bufferV1.Length
@@ -355,8 +355,7 @@ t = _headerV1.Value.NodeCount,
         }
         else
         {
-            return new Lis
-t<uint>();
+            return new List<uint>();
         }
 
         // Try to get from cache first
@@ -427,8 +426,7 @@ t<uint>();
     /// <summary>
     /// Gets the underlying buffer (for advanced scenarios)
     /// </summary>
-    [Obsolete("Use GetBufferV1() or GetBufferV2() based on SchemaVer
-sion")]
+    [Obsolete("Use GetBufferV1() or GetBufferV2() based on SchemaVersion")]
     internal CognitiveGraphBuffer? GetBuffer() => _bufferV1;
 
     /// <summary>
@@ -443,20 +441,15 @@ sion")]
 
     /// <summary>
     /// Upgrades a V1 graph file to V2 format.
-    /// 
-    /// NOTE: This is a BASIC implementation that only handles the root node and source text.
-    /// A full production implementation would need to:
-    /// 1. Traverse all symbol nodes in the V1 graph
-    /// 2. Copy all packed nodes and their child relationships
-    /// 3. Copy all properties
-    /// 4. Copy all CPG edges
-    /// 5. Rebuild the interval tree index
-    /// 
-    /// This method serves as a foundation and example for V1→V2 conversion.
+    /// Performs a full recursive traversal of the V1 graph and re-emits every symbol
+    /// node, packed node (with children), property and CPG edge through a V2 builder.
+    /// Shared nodes are migrated exactly once (memoized by V1 offset) so the SPPF
+    /// sharing structure of the source graph is preserved, and in-progress guards
+    /// reject cyclic (malformed) graphs instead of recursing forever. The interval
+    /// tree is rebuilt automatically by the builder as nodes are written.
     /// </summary>
     /// <param name="inputPath">Path to the input V1 graph file</param>
     /// <param name="outputPath">Path for the output V2 graph file</param>
-    [Obsolete("This is a basic implementation. Full graph traversal not yet implemented.")]
     public static void Upgrade(string inputPath, string outputPath)
     {
         if (string.IsNullOrWhiteSpace(inputPath))
@@ -474,30 +467,161 @@ sion")]
 
         // Get V1 header and data
         var v1Header = inputGraph.GetHeader();
-        if (!v1Header.HasValu
-e)
+        if (!v1Header.HasValue)
             throw new InvalidOperationException("Failed to read V1 header");
 
+        var bufferV1 = inputGraph.GetBufferV1()
+            ?? throw new InvalidOperationException("Failed to access the V1 graph buffer");
         var sourceText = inputGraph.GetSourceText();
-        var rootNode = inputGraph.GetRootNode();
 
         // Create V2 builder
         var options = GraphBuilderOptions.Universal();
         using var builder = new CognitiveGraphBuilder(options);
 
-        // Write the root node to V2 format
-        var rootNodeOffset = builder.WriteSymbolNode(
-            rootNode.SymbolID,
-            rootNode.NodeType,
-            rootNode.SourceStart,
-            rootNode.SourceLength,
-            null,  // Packed nodes would need to be traversed and copied
-            null   // Properties would need to be traversed and copied
-        );
+        // Memoization tables (V1 offset -> V2 offset) preserve SPPF node sharing;
+        // the in-progress sets guard against cycles in malformed graphs.
+        var migratedSymbolNodes = new Dictionary<uint, ulong>();
+        var migratedPackedNodes = new Dictionary<uint, ulong>();
+        var inProgressSymbolNodes = new HashSet<uint>();
+        var inProgressPackedNodes = new HashSet<uint>();
+
+        // Helpers over the V1 list layout: [uint count][items...]
+        uint ListCount(uint listOffset) => listOffset == 0 ? 0u : bufferV1.Read<uint>(listOffset);
+
+        uint ListItemAt(uint listOffset, int index) =>
+            bufferV1.Read<uint>(listOffset + sizeof(uint) + (uint)(index * sizeof(uint)));
+
+        (string key, PropertyValueType type, object value) ReadProperty(PropertyData propertyData)
+        {
+            var key = bufferV1.ReadString(propertyData.KeyOffset);
+
+            var header = bufferV1.Read<PropertyValueHeader>(propertyData.ValueOffset);
+            var valueSpan = bufferV1.Slice(
+                (int)(propertyData.ValueOffset + PropertyValueHeader.SIZE), (int)header.Length);
+
+            object value = header.Type switch
+            {
+                PropertyValueType.String => System.Text.Encoding.UTF8.GetString(valueSpan),
+                PropertyValueType.Int32 => MemoryMarshal.Read<int>(valueSpan),
+                PropertyValueType.UInt32 => MemoryMarshal.Read<uint>(valueSpan),
+                PropertyValueType.Boolean => valueSpan.Length > 0 && valueSpan[0] != 0,
+                PropertyValueType.Double => MemoryMarshal.Read<double>(valueSpan),
+                _ => throw new NotSupportedException(
+                    $"Property '{key}' uses value type {header.Type}, which the V2 builder does not support yet (see issue #15).")
+            };
+
+            return (key, header.Type, value);
+        }
+
+        List<(string key, PropertyValueType type, object value)>? ReadPropertyList(uint listOffset)
+        {
+            var count = (int)ListCount(listOffset);
+            if (count == 0)
+                return null;
+
+            var properties = new List<(string, PropertyValueType, object)>(count);
+            for (int i = 0; i < count; i++)
+            {
+                var propertyOffset = listOffset + sizeof(uint) + (uint)(i * PropertyData.SIZE);
+                properties.Add(ReadProperty(bufferV1.Read<PropertyData>(propertyOffset)));
+            }
+
+            return properties;
+        }
+
+        ulong MigratePackedNode(uint packedNodeOffsetV1)
+        {
+            if (migratedPackedNodes.TryGetValue(packedNodeOffsetV1, out var existingV2))
+                return existingV2;
+            if (!inProgressPackedNodes.Add(packedNodeOffsetV1))
+                throw new InvalidOperationException($"Cycle detected at packed node offset {packedNodeOffsetV1}.");
+
+            var packedData = bufferV1.Read<PackedNodeData>(packedNodeOffsetV1);
+
+            // Migrate child symbol nodes
+            List<uint>? childNodeOffsets = null;
+            var childCount = (int)ListCount(packedData.ChildNodesOffset);
+            if (childCount > 0)
+            {
+                childNodeOffsets = new List<uint>(childCount);
+                for (int i = 0; i < childCount; i++)
+                {
+                    childNodeOffsets.Add((uint)MigrateSymbolNode(ListItemAt(packedData.ChildNodesOffset, i)));
+                }
+            }
+
+            // Migrate CPG edges, re-targeting each edge to the migrated target node
+            List<CpgEdgeData>? cpgEdges = null;
+            var edgeCount = (int)ListCount(packedData.CpgEdgesOffset);
+            if (edgeCount > 0)
+            {
+                cpgEdges = new List<CpgEdgeData>(edgeCount);
+                for (int i = 0; i < edgeCount; i++)
+                {
+                    var edgeOffset = packedData.CpgEdgesOffset + sizeof(uint) + (uint)(i * CpgEdgeData.SIZE);
+                    var edgeData = bufferV1.Read<CpgEdgeData>(edgeOffset);
+
+                    var targetNodeOffsetV2 = MigrateSymbolNode(edgeData.TargetNodeOffset);
+                    var edgeProperties = ReadPropertyList(edgeData.PropertiesOffset);
+
+                    cpgEdges.Add(new CpgEdgeData(
+                        edgeData.EdgeType,
+                        (uint)targetNodeOffsetV2,
+                        edgeProperties != null ? (uint)builder.WritePropertyList(edgeProperties) : 0u,
+                        edgeData.Reserved));
+                }
+            }
+
+            var packedNodeOffsetV2 = builder.WritePackedNode(packedData.RuleID, childNodeOffsets, cpgEdges);
+
+            inProgressPackedNodes.Remove(packedNodeOffsetV1);
+            migratedPackedNodes[packedNodeOffsetV1] = packedNodeOffsetV2;
+            return packedNodeOffsetV2;
+        }
+
+        ulong MigrateSymbolNode(uint nodeOffsetV1)
+        {
+            if (migratedSymbolNodes.TryGetValue(nodeOffsetV1, out var existingV2))
+                return existingV2;
+            if (!inProgressSymbolNodes.Add(nodeOffsetV1))
+                throw new InvalidOperationException($"Cycle detected at symbol node offset {nodeOffsetV1}.");
+
+            var node = inputGraph.GetNodeAt(nodeOffsetV1);
+
+            // Migrate packed nodes (derivations)
+            List<uint>? packedNodeOffsets = null;
+            var packedCount = (int)ListCount(node.PackedNodesOffset);
+            if (packedCount > 0)
+            {
+                packedNodeOffsets = new List<uint>(packedCount);
+                for (int i = 0; i < packedCount; i++)
+                {
+                    packedNodeOffsets.Add((uint)MigratePackedNode(ListItemAt(node.PackedNodesOffset, i)));
+                }
+            }
+
+            // Migrate properties
+            var properties = ReadPropertyList(node.PropertiesOffset);
+
+            var nodeOffsetV2 = builder.WriteSymbolNode(
+                node.SymbolID,
+                node.NodeType,
+                node.SourceStart,
+                node.SourceLength,
+                packedNodeOffsets,
+                properties);
+
+            inProgressSymbolNodes.Remove(nodeOffsetV1);
+            migratedSymbolNodes[nodeOffsetV1] = nodeOffsetV2;
+            return nodeOffsetV2;
+        }
+
+        // Migrate the whole graph starting at the root
+        var rootNodeOffsetV2 = MigrateSymbolNode(v1Header.Value.RootNodeOffset);
 
         // Build and write to file
         using var outputStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
-        builder.Build(outputStream, rootNodeOffset, sourceText);
+        builder.Build(outputStream, (uint)rootNodeOffsetV2, sourceText);
     }
 
     public void Dispose()

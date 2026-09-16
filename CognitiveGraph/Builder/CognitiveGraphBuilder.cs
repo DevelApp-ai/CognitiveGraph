@@ -141,6 +141,27 @@ public sealed class CognitiveGraphBuilder : IDisposable
                 WriteStruct((double)value);
                 break;
                 
+            case PropertyValueType.Int64:
+                WriteStruct((long)value);
+                break;
+
+            case PropertyValueType.UInt64:
+                WriteStruct((ulong)value);
+                break;
+
+            case PropertyValueType.Float:
+                WriteStruct((float)value);
+                break;
+
+            case PropertyValueType.Binary:
+                var binaryBytes = (byte[])value;
+                _buffer.AddRange(binaryBytes);
+                if (_options.Schema == SchemaVersion.V1)
+                    _currentOffset += (uint)binaryBytes.Length;
+                else
+                    _currentOffsetV2 += (ulong)binaryBytes.Length;
+                break;
+
             default:
                 throw new ArgumentException($"Unsupported property value type: {type}");
         }
@@ -582,6 +603,10 @@ public sealed class CognitiveGraphBuilder : IDisposable
             PropertyValueType.UInt32 => sizeof(uint),
             PropertyValueType.Boolean => sizeof(byte),
             PropertyValueType.Double => sizeof(double),
+            PropertyValueType.Int64 => sizeof(long),
+            PropertyValueType.UInt64 => sizeof(ulong),
+            PropertyValueType.Float => sizeof(float),
+            PropertyValueType.Binary => (uint)((byte[])value).Length,
             _ => throw new ArgumentException($"Unsupported property value type: {type}")
         };
     }

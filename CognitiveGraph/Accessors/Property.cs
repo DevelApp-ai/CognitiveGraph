@@ -230,6 +230,50 @@ public readonly ref struct PropertyValue
     }
 
     /// <summary>
+    /// Gets the value as a long (Int64)
+    /// </summary>
+    public long AsInt64()
+    {
+        if (Type != PropertyValueType.Int64)
+            throw new InvalidOperationException($"Property type is {Type}, not Int64");
+
+        return MemoryMarshal.Read<long>(_dataSpan.Slice(PropertyValueHeader.SIZE));
+    }
+
+    /// <summary>
+    /// Gets the value as an unsigned long (UInt64)
+    /// </summary>
+    public ulong AsUInt64()
+    {
+        if (Type != PropertyValueType.UInt64)
+            throw new InvalidOperationException($"Property type is {Type}, not UInt64");
+
+        return MemoryMarshal.Read<ulong>(_dataSpan.Slice(PropertyValueHeader.SIZE));
+    }
+
+    /// <summary>
+    /// Gets the value as a float
+    /// </summary>
+    public float AsFloat()
+    {
+        if (Type != PropertyValueType.Float)
+            throw new InvalidOperationException($"Property type is {Type}, not Float");
+
+        return MemoryMarshal.Read<float>(_dataSpan.Slice(PropertyValueHeader.SIZE));
+    }
+
+    /// <summary>
+    /// Gets the value as a binary blob
+    /// </summary>
+    public ReadOnlySpan<byte> AsBinary()
+    {
+        if (Type != PropertyValueType.Binary)
+            throw new InvalidOperationException($"Property type is {Type}, not Binary");
+
+        return _dataSpan.Slice(PropertyValueHeader.SIZE, (int)Length);
+    }
+
+    /// <summary>
     /// Gets the raw value data
     /// </summary>
     public ReadOnlySpan<byte> AsBytes()

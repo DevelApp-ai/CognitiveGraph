@@ -18,78 +18,119 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
+using System.Text.Json;
 using System.Threading.Tasks;
-using CognitiveGraph.Accessors;
+using GraphQL;
+using GraphQL.SystemTextJson;
 
 namespace CognitiveGraph.QueryEngine;
 
 /// <summary>
-/// Simple query engine for CognitiveGraph with basic filtering capabilities.
-/// Placeholder for full GraphQL implementation.
+/// GraphQL query engine for CognitiveGraph.
+/// Executes real GraphQL queries (parsed and validated by the GraphQL library)
+/// against a schema backed by the graph's nodes, packed nodes, CPG edges,
+/// properties and spatial index.
 /// </summary>
+/// <remarks>
+/// The schema is created lazily on first execution and reused afterwards;
+/// the underlying graph buffer is immutable after load.
+/// V1 graphs are fully supported; V2 graphs fail fast with a clear error
+/// (V2 accessor support is tracked separately).
+/// </remarks>
 public sealed class GraphQLQueryEngine
 {
     private readonly CognitiveGraph _graph;
+    private readonly Lazy<CognitiveGraphSchema> _schema;
+    private readonly DocumentExecuter _executer = new();
+    private readonly GraphQLSerializer _serializer = new();
 
     public GraphQLQueryEngine(CognitiveGraph graph)
     {
         _graph = graph ?? throw new ArgumentNullException(nameof(graph));
+        _schema = new Lazy<CognitiveGraphSchema>(() => new CognitiveGraphSchema(_graph));
     }
 
     /// <summary>
-    /// Executes a simple query and returns matching node offsets
-    /// This is a simplified implementation - full GraphQL support would require more complex parsing
+    /// The GraphQL schema over the graph. Built on first access.
     /// </summary>
-    public Task<List<uint>> ExecuteQueryAsync(string query)
+    public CognitiveGraphSchema Schema => _schema.Value;
+
+    /// <summary>
+    /// Executes a GraphQL query and returns the full execution result,
+    /// including any parse, validation or execution errors.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// { nodes(symbolId: 1) { offset symbolId properties { key value } } }
+    /// </code>
+    /// </example>
+    public Task<ExecutionResult> ExecuteAsync(string query)
     {
-        return Task.FromResult(ExecuteQuery(query));
+        if (string.IsNullOrWhiteSpace(query))
+            throw new ArgumentException("Query cannot be null or empty.", nameof(query));
+
+        return _executer.ExecuteAsync(new ExecutionOptions
+        {
+            Schema = _schema.Value,
+            Query = query,
+        });
     }
 
     /// <summary>
-    /// Executes a simple query synchronously
+    /// Executes a GraphQL query and returns the offsets of all nodes the query
+    /// returned (every `offset` field in the response data).
+    /// Throws <see cref="InvalidOperationException"/> if the query fails to
+    /// parse, validate or execute.
     /// </summary>
-    private List<uint> ExecuteQuery(string query)
+    public async Task<List<uint>> ExecuteQueryAsync(string query)
     {
         if (string.IsNullOrWhiteSpace(query))
             return new List<uint>();
 
-        var results = new List<uint>();
+        var result = await ExecuteAsync(query);
 
-        // Simple pattern matching for basic queries
-        // In a full implementation, this would use a proper GraphQL parser
-        
-        if (query.Contains("symbolId"))
-        {
-            var match = Regex.Match(query, @"symbolId:\s*(\d+)");
-            if (match.Success && int.TryParse(match.Groups[1].Value, out var symbolId))
-            {
-                var rootNode = _graph.GetRootNode();
-                if (rootNode.SymbolID == symbolId)
-                {
-                    results.Add(_graph.Header.RootNodeOffset);
-                }
-            }
-        }
-        else if (query.Contains("nodeType"))
-        {
-            var match = Regex.Match(query, @"nodeType:\s*(\d+)");
-            if (match.Success && int.TryParse(match.Groups[1].Value, out var nodeType))
-            {
-                var rootNode = _graph.GetRootNode();
-                if (rootNode.NodeType == nodeType)
-                {
-                    results.Add(_graph.Header.RootNodeOffset);
-                }
-            }
-        }
-        else
-        {
-            // Default: return root node
-            results.Add(_graph.Header.RootNodeOffset);
-        }
+        if (result.Errors is { Count: > 0 })
+            throw new InvalidOperationException(
+                $"GraphQL query failed: {result.Errors[0].Message}");
 
-        return results;
+        if (result.Data is null)
+            return new List<uint>();
+
+        // Walk the serialized response and collect every node `offset` the caller
+        // asked for. This keeps the historical List<uint> contract while the query
+        // itself is fully user-defined.
+        var json = _serializer.Serialize(result);
+        using var document = JsonDocument.Parse(json);
+
+        var offsets = new List<uint>();
+        CollectOffsets(document.RootElement, offsets);
+        return offsets;
+    }
+
+    private static void CollectOffsets(JsonElement element, List<uint> result)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (var property in element.EnumerateObject())
+                {
+                    if (property.Name == "offset" && property.Value.ValueKind == JsonValueKind.Number)
+                    {
+                        var value = property.Value.GetInt64();
+                        if (value >= 0 && value <= uint.MaxValue)
+                            result.Add((uint)value);
+                    }
+                    else
+                    {
+                        CollectOffsets(property.Value, result);
+                    }
+                }
+                break;
+
+            case JsonValueKind.Array:
+                foreach (var item in element.EnumerateArray())
+                    CollectOffsets(item, result);
+                break;
+        }
     }
 }
-

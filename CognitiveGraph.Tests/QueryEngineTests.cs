@@ -1,46 +1,105 @@
-/*
- * CognitiveGraph - Zero-Copy Cognitive Graph for Advanced Code Analysis
- * Copyright (C) 2024 DevelApp-ai
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 using CognitiveGraph.Builder;
 using CognitiveGraph.Schema;
 using CognitiveGraph;
+using CognitiveGraph.QueryEngine;
 
 namespace CognitiveGraph.Tests;
 
 /// <summary>
-/// Tests for the query engine functionality
+/// Tests for the GraphQL query engine.
+/// All test graphs are multi-node (root + packed node + children) so queries
+/// are exercised against non-root nodes.
 /// </summary>
 public class QueryEngineTests
 {
+    /// <summary>
+    /// Builds a multi-node graph over "hello world foo":
+    ///   root (Expression, symbol 10, type 1)
+    ///     - packed node rule 7 with children: hello (symbol 1, type 100), world (symbol 2, type 101)
+    ///     - packed node rule 8 with children: hello (shared), foo (symbol 3, type 102)
+    /// The hello node is shared between both derivations (SPPF sharing) and carries properties.
+    /// </summary>
+    private sealed class MultiNodeGraph : IDisposable
+    {
+        public CognitiveGraph Graph = null!;
+        public uint RootOffset;
+        public uint HelloOffset;
+        public uint WorldOffset;
+        public uint FooOffset;
+
+        public void Dispose() => Graph.Dispose();
+    }
+
+    private static MultiNodeGraph BuildMultiNodeGraph()
+    {
+        using var builder = new CognitiveGraphBuilder();
+
+        var helloOffset = builder.WriteSymbolNode(
+            symbolId: 1,
+            nodeType: 100,
+            sourceStart: 0,
+            sourceLength: 5,
+            properties: new List<(string, PropertyValueType, object)>
+            {
+                ("Name", PropertyValueType.String, "hello"),
+                ("Length", PropertyValueType.Int32, 5)
+            });
+
+        var worldOffset = builder.WriteSymbolNode(
+            symbolId: 2,
+            nodeType: 101,
+            sourceStart: 6,
+            sourceLength: 5,
+            properties: new List<(string, PropertyValueType, object)>
+            {
+                ("Name", PropertyValueType.String, "world")
+            });
+
+        var fooOffset = builder.WriteSymbolNode(
+            symbolId: 3,
+            nodeType: 102,
+            sourceStart: 12,
+            sourceLength: 3,
+            properties: new List<(string, PropertyValueType, object)>
+            {
+                ("Name", PropertyValueType.String, "foo")
+            });
+
+        var derivationA = builder.WritePackedNode(ruleId: 7, childNodeOffsets: new List<uint> { helloOffset, worldOffset });
+        var derivationB = builder.WritePackedNode(ruleId: 8, childNodeOffsets: new List<uint> { helloOffset, fooOffset });
+
+        var rootOffset = builder.WriteSymbolNode(
+            symbolId: 10,
+            nodeType: 1,
+            sourceStart: 0,
+            sourceLength: 15,
+            packedNodeOffsets: new List<uint> { derivationA, derivationB });
+
+        var buffer = builder.Build(rootOffset, "hello world foo");
+        return new MultiNodeGraph
+        {
+            Graph = new CognitiveGraph(buffer),
+            RootOffset = rootOffset,
+            HelloOffset = helloOffset,
+            WorldOffset = worldOffset,
+            FooOffset = fooOffset
+        };
+    }
+
     [Fact]
     public async Task QueryAsync_WithEmptyQuery_ReturnsEmptyList()
     {
         // Arrange
-        using var builder = new CognitiveGraphBuilder();
-        var rootNodeOffset = builder.WriteSymbolNode(1, 100, 0, 4);
-        var buffer = builder.Build(rootNodeOffset, "test");
-        using var graph = new CognitiveGraph(buffer);
+        using var g = BuildMultiNodeGraph();
 
         // Act
-        var results = await graph.QueryAsync("");
+        var results = await g.Graph.QueryAsync("");
 
         // Assert
         Assert.Empty(results);
@@ -50,228 +109,221 @@ public class QueryEngineTests
     public async Task QueryAsync_WithNullQuery_ReturnsEmptyList()
     {
         // Arrange
-        using var builder = new CognitiveGraphBuilder();
-        var rootNodeOffset = builder.WriteSymbolNode(1, 100, 0, 4);
-        var buffer = builder.Build(rootNodeOffset, "test");
-        using var graph = new CognitiveGraph(buffer);
+        using var g = BuildMultiNodeGraph();
 
         // Act
-        var results = await graph.QueryAsync(null!);
+        var results = await g.Graph.QueryAsync(null!);
 
         // Assert
         Assert.Empty(results);
     }
 
     [Fact]
-    public void Query_SynchronousVersion_WorksCorrectly()
+    public async Task QueryAsync_RootQuery_ReturnsRootNodeOffset()
     {
         // Arrange
-        using var builder = new CognitiveGraphBuilder();
-        var properties = new List<(string key, PropertyValueType type, object value)>
-        {
-            ("NodeType", PropertyValueType.String, "TestNode")
-        };
-
-        var rootNodeOffset = builder.WriteSymbolNode(
-            symbolId: 42,
-            nodeType: 200,
-            sourceStart: 0,
-            sourceLength: 4,
-            properties: properties
-        );
-
-        var buffer = builder.Build(rootNodeOffset, "test");
-        using var graph = new CognitiveGraph(buffer);
+        using var g = BuildMultiNodeGraph();
 
         // Act
-        var results = graph.Query("symbolId: 42");
+        var results = await g.Graph.QueryAsync("{ root { offset symbolId } }");
 
         // Assert
-        Assert.Single(results);
-        Assert.Contains(rootNodeOffset, results);
+        var offset = Assert.Single(results);
+        Assert.Equal(g.RootOffset, offset);
     }
 
     [Fact]
-    public async Task QueryAsync_WithSymbolIdFilter_ReturnsMatchingNodes()
+    public async Task QueryAsync_SymbolIdFilter_MatchesNonRootNodes()
     {
         // Arrange
-        using var builder = new CognitiveGraphBuilder();
-        var rootNodeOffset = builder.WriteSymbolNode(
-            symbolId: 123,
-            nodeType: 100,
-            sourceStart: 0,
-            sourceLength: 4
-        );
+        using var g = BuildMultiNodeGraph();
 
-        var buffer = builder.Build(rootNodeOffset, "test");
-        using var graph = new CognitiveGraph(buffer);
-
-        // Act
-        var results = await graph.QueryAsync("symbolId: 123");
+        // Act - filter by symbolId matching a child, not the root
+        var results = await g.Graph.QueryAsync("{ nodes(symbolId: 2) { offset symbolId } }");
 
         // Assert
-        Assert.Single(results);
-        Assert.Contains(rootNodeOffset, results);
+        var offset = Assert.Single(results);
+        Assert.Equal(g.WorldOffset, offset);
     }
 
     [Fact]
-    public async Task QueryAsync_WithNonMatchingSymbolId_ReturnsEmptyList()
+    public async Task QueryAsync_SharedNode_MatchesOncePerQuery()
     {
-        // Arrange
-        using var builder = new CognitiveGraphBuilder();
-        var rootNodeOffset = builder.WriteSymbolNode(
-            symbolId: 123,
-            nodeType: 100,
-            sourceStart: 0,
-            sourceLength: 4
-        );
-
-        var buffer = builder.Build(rootNodeOffset, "test");
-        using var graph = new CognitiveGraph(buffer);
+        // Arrange - hello (symbolId 1) is shared by both derivations
+        using var g = BuildMultiNodeGraph();
 
         // Act
-        var results = await graph.QueryAsync("symbolId: 999");
+        var results = await g.Graph.QueryAsync("{ nodes(symbolId: 1) { offset } }");
+
+        // Assert - node enumeration is de-duplicated by offset
+        var offset = Assert.Single(results);
+        Assert.Equal(g.HelloOffset, offset);
+    }
+
+    [Fact]
+    public async Task QueryAsync_NodeTypeFilter_MatchesNonRootNodes()
+    {
+        // Arrange
+        using var g = BuildMultiNodeGraph();
+
+        // Act - filter by nodeType matching a child, not the root
+        var results = await g.Graph.QueryAsync("{ nodes(nodeType: 102) { offset } }");
+
+        // Assert
+        var offset = Assert.Single(results);
+        Assert.Equal(g.FooOffset, offset);
+    }
+
+    [Fact]
+    public async Task QueryAsync_NonMatchingFilters_ReturnsEmptyList()
+    {
+        // Arrange
+        using var g = BuildMultiNodeGraph();
+
+        // Act
+        var results = await g.Graph.QueryAsync("{ nodes(symbolId: 999) { offset } }");
 
         // Assert
         Assert.Empty(results);
     }
 
     [Fact]
-    public async Task QueryAsync_WithNodeTypeFilter_ReturnsMatchingNodes()
+    public async Task QueryAsync_NodeLookupByOffset_ReturnsThatNode()
     {
         // Arrange
-        using var builder = new CognitiveGraphBuilder();
-        var rootNodeOffset = builder.WriteSymbolNode(
-            symbolId: 1,
-            nodeType: 456,
-            sourceStart: 0,
-            sourceLength: 4
-        );
-
-        var buffer = builder.Build(rootNodeOffset, "test");
-        using var graph = new CognitiveGraph(buffer);
+        using var g = BuildMultiNodeGraph();
 
         // Act
-        var results = await graph.QueryAsync("nodeType: 456");
+        var results = await g.Graph.QueryAsync($"{{ node(offset: {g.WorldOffset}) {{ offset symbolId sourceText }} }}");
 
         // Assert
-        Assert.Single(results);
-        Assert.Contains(rootNodeOffset, results);
+        var offset = Assert.Single(results);
+        Assert.Equal(g.WorldOffset, offset);
     }
 
     [Fact]
-    public async Task QueryAsync_WithNonMatchingNodeType_ReturnsEmptyList()
+    public async Task QueryAsync_ChildrenTraversal_ReturnsAllChildOffsets()
     {
         // Arrange
-        using var builder = new CognitiveGraphBuilder();
-        var rootNodeOffset = builder.WriteSymbolNode(
-            symbolId: 1,
-            nodeType: 456,
-            sourceStart: 0,
-            sourceLength: 4
-        );
-
-        var buffer = builder.Build(rootNodeOffset, "test");
-        using var graph = new CognitiveGraph(buffer);
+        using var g = BuildMultiNodeGraph();
 
         // Act
-        var results = await graph.QueryAsync("nodeType: 999");
+        var results = await g.Graph.QueryAsync("{ root { children { offset } } }");
 
-        // Assert
-        Assert.Empty(results);
+        // Assert - children across both derivations: hello, world (rule 7), hello, foo (rule 8)
+        Assert.Equal(4, results.Count);
+        Assert.Equal(g.HelloOffset, results[0]);
+        Assert.Equal(g.WorldOffset, results[1]);
+        Assert.Equal(g.HelloOffset, results[2]);
+        Assert.Equal(g.FooOffset, results[3]);
     }
 
     [Fact]
-    public async Task QueryAsync_WithGenericQuery_ReturnsRootNode()
+    public async Task QueryAsync_PackedNodes_ExposeRulesAndChildren()
     {
         // Arrange
-        using var builder = new CognitiveGraphBuilder();
-        var rootNodeOffset = builder.WriteSymbolNode(1, 100, 0, 4);
-        var buffer = builder.Build(rootNodeOffset, "test");
-        using var graph = new CognitiveGraph(buffer);
-
-        // Act - Use a generic query that should return the default result
-        var results = await graph.QueryAsync("{ nodes }");
-
-        // Assert - Our simple implementation returns root for any unmatched query
-        Assert.Single(results);
-        Assert.Contains(rootNodeOffset, results);
-    }
-
-    [Fact]
-    public async Task QueryAsync_WithComplexQuery_ParsesCorrectly()
-    {
-        // Arrange
-        using var builder = new CognitiveGraphBuilder();
-        var properties = new List<(string key, PropertyValueType type, object value)>
-        {
-            ("NodeType", PropertyValueType.String, "Expression"),
-            ("Operator", PropertyValueType.String, "+")
-        };
-
-        var rootNodeOffset = builder.WriteSymbolNode(
-            symbolId: 789,
-            nodeType: 300,
-            sourceStart: 0,
-            sourceLength: 13,
-            properties: properties
-        );
-
-        var buffer = builder.Build(rootNodeOffset, "hello + world");
-        using var graph = new CognitiveGraph(buffer);
+        using var g = BuildMultiNodeGraph();
 
         // Act
-        var results = await graph.QueryAsync("symbolId: 789");
+        var results = await g.Graph.QueryAsync("{ root { packedNodes { ruleId children { offset } } } }");
 
-        // Assert
-        Assert.Single(results);
-        Assert.Contains(rootNodeOffset, results);
+        // Assert - all children of both derivations are returned
+        Assert.Equal(4, results.Count);
+        // First derivation (rule 7): hello + world
+        Assert.Equal(g.HelloOffset, results[0]);
+        Assert.Equal(g.WorldOffset, results[1]);
     }
 
     [Fact]
-    public async Task QueryAsync_MultipleQueries_CachePerformance()
+    public async Task QueryAsync_Properties_AreQueryable()
     {
         // Arrange
-        using var builder = new CognitiveGraphBuilder();
-        var rootNodeOffset = builder.WriteSymbolNode(
-            symbolId: 555,
-            nodeType: 777,
-            sourceStart: 0,
-            sourceLength: 10
-        );
+        using var g = BuildMultiNodeGraph();
 
-        var buffer = builder.Build(rootNodeOffset, "test_input");
-        using var graph = new CognitiveGraph(buffer);
+        // Act - select nodes with their properties; offsets of all matched nodes returned
+        var results = await g.Graph.QueryAsync("{ nodes(symbolId: 1) { offset properties { key value type } } }");
 
-        // Act - Run same query multiple times
-        var results1 = await graph.QueryAsync("symbolId: 555");
-        var results2 = await graph.QueryAsync("symbolId: 555");
-        var results3 = await graph.QueryAsync("symbolId: 555");
+        // Assert
+        var offset = Assert.Single(results);
+        Assert.Equal(g.HelloOffset, offset);
+    }
 
-        // Assert - Results should be consistent
+    [Fact]
+    public async Task QueryAsync_SpatialLookup_FindsNonRootNodes()
+    {
+        // Arrange - "world" occupies source bytes 6..10
+        using var g = BuildMultiNodeGraph();
+
+        // Act
+        var results = await g.Graph.QueryAsync("{ nodesAt(point: 8) { offset symbolId } }");
+
+        // Assert - both the root and the world child contain byte 8
+        Assert.Contains(g.WorldOffset, results);
+        Assert.Equal(2, results.Count);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ReturnsStructuredResultWithErrors()
+    {
+        // Arrange
+        using var g = BuildMultiNodeGraph();
+        var engine = new GraphQLQueryEngine(g.Graph);
+
+        // Act - unknown field fails validation
+        var result = await engine.ExecuteAsync("{ root { bogusField } }");
+
+        // Assert
+        Assert.NotNull(result.Errors);
+        Assert.True(result.Errors.Count > 0);
+    }
+
+    [Fact]
+    public async Task QueryAsync_WithInvalidQuery_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        using var g = BuildMultiNodeGraph();
+
+        // Act & Assert - a real engine reports invalid queries instead of
+        // silently returning the root node
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => g.Graph.QueryAsync("this is not graphql"));
+    }
+
+    [Fact]
+    public async Task QueryAsync_MultipleQueries_ConsistentResults()
+    {
+        // Arrange
+        using var g = BuildMultiNodeGraph();
+        var query = "{ nodes(symbolId: 2) { offset } }";
+
+        // Act
+        var results1 = await g.Graph.QueryAsync(query);
+        var results2 = await g.Graph.QueryAsync(query);
+        var results3 = await g.Graph.QueryAsync(query);
+
+        // Assert - the lazily built schema is reused safely across executions
         Assert.Equal(results1.Count, results2.Count);
         Assert.Equal(results1.Count, results3.Count);
-        
         for (int i = 0; i < results1.Count; i++)
         {
             Assert.Equal(results1[i], results2[i]);
             Assert.Equal(results1[i], results3[i]);
         }
+
+        Assert.Equal(g.WorldOffset, results1.Single());
     }
 
     [Fact]
-    public async Task QueryAsync_WithInvalidQuery_HandlesGracefully()
+    public async Task QueryAsync_UnfilteredNodes_ReturnsEveryNodeOnce()
     {
-        // Arrange
-        using var builder = new CognitiveGraphBuilder();
-        var rootNodeOffset = builder.WriteSymbolNode(1, 100, 0, 4);
-        var buffer = builder.Build(rootNodeOffset, "test");
-        using var graph = new CognitiveGraph(buffer);
+        // Arrange - 4 distinct nodes: root, hello, world, foo
+        using var g = BuildMultiNodeGraph();
 
-        // Act & Assert - Should not throw, but return default result
-        var results = await graph.QueryAsync("invalid query syntax");
-        
-        // For our simple implementation, invalid queries return the root node
-        Assert.Single(results);
+        // Act
+        var results = await g.Graph.QueryAsync("{ nodes { offset } }");
+
+        // Assert
+        Assert.Equal(4, results.Count);
+        Assert.Equal(4, results.Distinct().Count());
     }
 }

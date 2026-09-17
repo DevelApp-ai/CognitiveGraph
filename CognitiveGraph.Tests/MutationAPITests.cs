@@ -241,15 +241,300 @@ public class MutationAPITests
 
         using var modifiedGraph = editor.Build();
 
-        // Assert - The editor should create a new graph
+        // Assert - The editor creates a new graph with all operations applied
         var modifiedRoot = modifiedGraph.GetRootNode();
         Assert.Equal(1, modifiedRoot.SymbolID);
         Assert.Equal(100, modifiedRoot.NodeType);
-        
-        // Note: Our simplified editor implementation preserves original node data
-        // In a full implementation, the move operation would be properly applied
-        
-        // Note: Property validation would require extending the SymbolNode API
-        // to enumerate all properties, which is beyond the scope of this minimal implementation
+
+        // The move operation is applied
+        Assert.Equal(1u, modifiedRoot.SourceStart);
+        Assert.Equal(3u, modifiedRoot.SourceLength);
+
+        // Property updates are applied and existing properties are preserved
+        Assert.True(modifiedRoot.TryGetProperty("NodeType", out var nodeType));
+        Assert.Equal("ModifiedNode", nodeType.AsString());
+        Assert.True(modifiedRoot.TryGetProperty("Value", out var value));
+        Assert.Equal(123, value.AsInt32());
+        Assert.True(modifiedRoot.TryGetProperty("NewProperty", out var newProperty));
+        Assert.True(newProperty.AsBoolean());
+    }
+
+    /// <summary>
+    /// Builds a graph exercising ambiguity (two packed nodes / derivations),
+    /// SPPF sharing (both derivations reference the same child), CPG edges with
+    /// properties, and multi-typed node properties.
+    /// </summary>
+    private static CognitiveGraph BuildTestGraph()
+    {
+        using var builder = new CognitiveGraphBuilder();
+
+        var childOffset = builder.WriteSymbolNode(
+            symbolId: 7,
+            nodeType: 107,
+            sourceStart: 5,
+            sourceLength: 3,
+            properties: new List<(string key, PropertyValueType type, object value)>
+            {
+                ("Name", PropertyValueType.String, "child"),
+                ("Count", PropertyValueType.Int32, 9)
+            });
+
+        var edgePropertiesOffset = (uint)builder.WritePropertyList(
+            new List<(string key, PropertyValueType type, object value)>
+            {
+                ("label", PropertyValueType.String, "ast")
+            });
+
+        var firstPackedOffset = builder.WritePackedNode(
+            ruleId: 10,
+            childNodeOffsets: new List<uint> { childOffset },
+            cpgEdges: new List<CpgEdgeData>
+            {
+                new((ushort)EdgeType.AST_CHILD, childOffset, edgePropertiesOffset)
+            });
+
+        // Second derivation sharing the same child node (SPPF sharing)
+        var secondPackedOffset = builder.WritePackedNode(11, new List<uint> { childOffset });
+
+        var rootOffset = builder.WriteSymbolNode(
+            symbolId: 1,
+            nodeType: 100,
+            sourceStart: 0,
+            sourceLength: 10,
+            packedNodeOffsets: new List<uint> { firstPackedOffset, secondPackedOffset },
+            properties: new List<(string key, PropertyValueType type, object value)>
+            {
+                ("Name", PropertyValueType.String, "root"),
+                ("Value", PropertyValueType.Int32, 42)
+            });
+
+        var buffer = builder.Build(rootOffset, "test source");
+        return new CognitiveGraph(buffer);
+    }
+
+    [Fact]
+    public void Build_WithNoOperations_ReturnsDistinctEqualClone()
+    {
+        // Arrange
+        using var original = BuildTestGraph();
+        using var editor = new CognitiveGraphEditor(original);
+
+        // Act
+        using var clone = editor.Build();
+
+        // Assert - a distinct instance with equal content
+        Assert.NotSame(original, clone);
+        Assert.Equal("test source", clone.GetSourceText());
+
+        var root = clone.GetRootNode();
+        Assert.Equal(1, root.SymbolID);
+        Assert.Equal(100, root.NodeType);
+        Assert.Equal(0u, root.SourceStart);
+        Assert.Equal(10u, root.SourceLength);
+
+        Assert.True(root.TryGetProperty("Name", out var name));
+        Assert.Equal("root", name.AsString());
+        Assert.True(root.TryGetProperty("Value", out var value));
+        Assert.Equal(42, value.AsInt32());
+
+        // Ambiguity (two derivations) is preserved
+        var packedNodes = root.GetPackedNodes();
+        Assert.Equal(2, packedNodes.Count);
+        Assert.Equal(10, packedNodes[0].RuleID);
+        Assert.Equal(11, packedNodes[1].RuleID);
+
+        // SPPF sharing is preserved: both derivations reference the same child
+        var firstChildren = packedNodes[0].GetChildNodes();
+        var secondChildren = packedNodes[1].GetChildNodes();
+        Assert.Equal(1, firstChildren.Count);
+        Assert.Equal(1, secondChildren.Count);
+        Assert.Equal(firstChildren[0].Offset, secondChildren[0].Offset);
+        Assert.Equal(7, firstChildren[0].SymbolID);
+        Assert.True(firstChildren[0].TryGetProperty("Name", out var childName));
+        Assert.Equal("child", childName.AsString());
+        Assert.True(firstChildren[0].TryGetProperty("Count", out var count));
+        Assert.Equal(9, count.AsInt32());
+
+        // CPG edges are re-targeted to the cloned nodes and keep their properties
+        var edges = packedNodes[0].GetCpgEdges();
+        Assert.Equal(1, edges.Count);
+        Assert.Equal(EdgeType.AST_CHILD, edges[0].EdgeType);
+        Assert.Equal(7, edges[0].GetTargetNode().SymbolID);
+        Assert.True(edges[0].TryGetProperty("label", out var label));
+        Assert.Equal("ast", label.AsString());
+    }
+
+    [Fact]
+    public void UpdateProperty_PreservesExistingProperties()
+    {
+        // Arrange
+        using var original = BuildTestGraph();
+        var rootOffset = original.GetRootNode().Offset;
+        using var editor = new CognitiveGraphEditor(original);
+
+        // Act
+        using var modified = editor
+            .UpdateProperty(rootOffset, "Name", PropertyValueType.String, "renamed")
+            .Build();
+
+        // Assert - the updated property is applied...
+        var root = modified.GetRootNode();
+        Assert.True(root.TryGetProperty("Name", out var name));
+        Assert.Equal("renamed", name.AsString());
+
+        // ...and the other original property is preserved
+        Assert.True(root.TryGetProperty("Value", out var value));
+        Assert.Equal(42, value.AsInt32());
+
+        // Packed nodes and children survive the property update
+        var packedNodes = root.GetPackedNodes();
+        Assert.Equal(2, packedNodes.Count);
+        Assert.True(packedNodes[0].GetChildNodes()[0].TryGetProperty("Count", out var count));
+        Assert.Equal(9, count.AsInt32());
+    }
+
+    [Fact]
+    public void RemoveProperty_RemovesOnlyTheTargetedProperty()
+    {
+        // Arrange
+        using var original = BuildTestGraph();
+        var rootOffset = original.GetRootNode().Offset;
+        using var editor = new CognitiveGraphEditor(original);
+
+        // Act
+        using var modified = editor.RemoveProperty(rootOffset, "Value").Build();
+
+        // Assert
+        var root = modified.GetRootNode();
+        Assert.False(root.TryGetProperty("Value", out _));
+        Assert.True(root.TryGetProperty("Name", out var name));
+        Assert.Equal("root", name.AsString());
+    }
+
+    [Fact]
+    public void MoveNode_PreservesPackedNodesAndChildren()
+    {
+        // Arrange
+        using var original = BuildTestGraph();
+        var rootOffset = original.GetRootNode().Offset;
+        using var editor = new CognitiveGraphEditor(original);
+
+        // Act
+        using var modified = editor.MoveNode(rootOffset, 2, 5).Build();
+
+        // Assert - the source position changed...
+        var root = modified.GetRootNode();
+        Assert.Equal(2u, root.SourceStart);
+        Assert.Equal(5u, root.SourceLength);
+
+        // ...while ambiguity, packed nodes, children, sharing, edges and
+        // properties are all preserved
+        Assert.True(root.TryGetProperty("Name", out var name));
+        Assert.Equal("root", name.AsString());
+
+        var packedNodes = root.GetPackedNodes();
+        Assert.Equal(2, packedNodes.Count);
+        Assert.Equal(10, packedNodes[0].RuleID);
+        Assert.Equal(11, packedNodes[1].RuleID);
+
+        var firstChildren = packedNodes[0].GetChildNodes();
+        var secondChildren = packedNodes[1].GetChildNodes();
+        Assert.Equal(1, firstChildren.Count);
+        Assert.Equal(1, secondChildren.Count);
+        Assert.Equal(firstChildren[0].Offset, secondChildren[0].Offset);
+        Assert.Equal(7, firstChildren[0].SymbolID);
+        Assert.True(firstChildren[0].TryGetProperty("Count", out var count));
+        Assert.Equal(9, count.AsInt32());
+
+        var edges = packedNodes[0].GetCpgEdges();
+        Assert.Equal(1, edges.Count);
+        Assert.Equal(7, edges[0].GetTargetNode().SymbolID);
+        Assert.True(edges[0].TryGetProperty("label", out var label));
+        Assert.Equal("ast", label.AsString());
+    }
+
+    [Fact]
+    public void UpdateProperty_OnChildNode_PreservesParentStructure()
+    {
+        // Arrange
+        using var original = BuildTestGraph();
+        var childOffset = original.GetRootNode().GetPackedNodes()[0].GetChildNodes()[0].Offset;
+        using var editor = new CognitiveGraphEditor(original);
+
+        // Act
+        using var modified = editor
+            .UpdateProperty(childOffset, "Name", PropertyValueType.String, "renamed-child")
+            .Build();
+
+        // Assert - the child property is updated
+        var root = modified.GetRootNode();
+        var child = root.GetPackedNodes()[0].GetChildNodes()[0];
+        Assert.True(child.TryGetProperty("Name", out var childName));
+        Assert.Equal("renamed-child", childName.AsString());
+        Assert.True(child.TryGetProperty("Count", out var count));
+        Assert.Equal(9, count.AsInt32());
+
+        // ...and the parent structure is untouched
+        Assert.True(root.TryGetProperty("Name", out var rootName));
+        Assert.Equal("root", rootName.AsString());
+        Assert.Equal(2, root.GetPackedNodes().Count);
+    }
+
+    [Fact]
+    public void DeleteNode_RemovesSubtreeFromResult()
+    {
+        // Arrange
+        using var original = BuildTestGraph();
+        var childOffset = original.GetRootNode().GetPackedNodes()[0].GetChildNodes()[0].Offset;
+        using var editor = new CognitiveGraphEditor(original);
+
+        // Act
+        using var modified = editor.DeleteNode(childOffset).Build();
+
+        // Assert - the deleted child is dropped from every derivation
+        var root = modified.GetRootNode();
+        var packedNodes = root.GetPackedNodes();
+        Assert.Equal(2, packedNodes.Count);
+        Assert.Equal(0, packedNodes[0].GetChildNodes().Count);
+        Assert.Equal(0, packedNodes[1].GetChildNodes().Count);
+
+        // The edge targeting the deleted node is dropped as well
+        Assert.Equal(0, packedNodes[0].GetCpgEdges().Count);
+
+        // The root itself is untouched
+        Assert.True(root.TryGetProperty("Name", out var name));
+        Assert.Equal("root", name.AsString());
+    }
+
+    [Fact]
+    public void DeleteNode_OnRoot_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        using var original = BuildTestGraph();
+        var rootOffset = original.GetRootNode().Offset;
+        using var editor = new CognitiveGraphEditor(original);
+
+        // Act & Assert - deleting the root would leave an empty graph
+        editor.DeleteNode(rootOffset);
+        Assert.Throws<InvalidOperationException>(() => editor.Build());
+    }
+
+    [Fact]
+    public void Build_CanBeCalledRepeatedly()
+    {
+        // Arrange
+        using var original = BuildTestGraph();
+        var rootOffset = original.GetRootNode().Offset;
+        using var editor = new CognitiveGraphEditor(original);
+
+        // Act - build twice with operations added in between
+        using var first = editor.UpdateProperty(rootOffset, "Name", PropertyValueType.String, "first").Build();
+        using var second = editor.UpdateProperty(rootOffset, "Name", PropertyValueType.String, "second").Build();
+
+        // Assert
+        Assert.True(first.GetRootNode().TryGetProperty("Name", out var firstName));
+        Assert.Equal("first", firstName.AsString());
+        Assert.True(second.GetRootNode().TryGetProperty("Name", out var secondName));
+        Assert.Equal("second", secondName.AsString());
     }
 }

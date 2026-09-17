@@ -291,4 +291,131 @@ public class SpatialIndexTests
                 File.Delete(tempFile);
         }
     }
+
+    [Fact]
+    public void IntervalTree_FindNodesAt_NestedAndOverlappingIntervals_ReturnsAllMatches()
+    {
+        // Arrange - nested + overlapping intervals sharing points
+        var tree = new IntervalTree();
+        tree.Add(10, 90, 1000);  // outer
+        tree.Add(10, 90, 1001);  // duplicate span, different node
+        tree.Add(20, 40, 1002);  // nested in outer
+        tree.Add(35, 60, 1003);  // overlaps nested
+        tree.Add(90, 90, 1004);  // point interval at the outer end
+        tree.Add(0, 5, 1005);    // disjoint, before everything
+        tree.Add(200, 300, 1006);// disjoint, after everything
+
+        // Act & Assert
+        Assert.Equal(new List<uint> { 1000u, 1001u }, tree.FindNodesAt(10)); // outer start
+        Assert.Equal(new List<uint> { 1000u, 1001u, 1002u }, tree.FindNodesAt(25)); // inside nested
+        Assert.Equal(new List<uint> { 1000u, 1001u, 1002u, 1003u }, tree.FindNodesAt(38)); // nested + overlap
+        Assert.Equal(new List<uint> { 1000u, 1001u, 1003u }, tree.FindNodesAt(50)); // outer + overlap
+        Assert.Equal(new List<uint> { 1000u, 1001u, 1004u }, tree.FindNodesAt(90)); // boundary end
+        Assert.Equal(new List<uint> { 1005u }, tree.FindNodesAt(3));
+        Assert.Equal(new List<uint> { 1006u }, tree.FindNodesAt(250));
+        Assert.Empty(tree.FindNodesAt(95)); // between disjoint ranges
+        Assert.Empty(tree.FindNodesAt(6));  // gap
+    }
+
+    [Fact]
+    public void IntervalTree_FindNodesAt_MatchesLinearScanOnRandomizedData()
+    {
+        // Arrange - deterministic random intervals, compared against a brute-force scan
+        const int intervalCount = 2000;
+        const int queryCount = 500;
+        var random = new Random(20260916);
+
+        var intervals = new List<(uint start, uint end, uint offset)>(intervalCount);
+        for (int i = 0; i < intervalCount; i++)
+        {
+            var start = (uint)random.Next(0, 10_000);
+            var length = (uint)random.Next(0, 200);
+            intervals.Add((start, start + length, (uint)(i + 1)));
+        }
+
+        var tree = new IntervalTree();
+        foreach (var (start, end, offset) in intervals)
+            tree.Add(start, end, offset);
+
+        // Act & Assert
+        for (int q = 0; q < queryCount; q++)
+        {
+            var point = (uint)random.Next(0, 10_500);
+
+            var expected = intervals
+                .Where(iv => iv.start <= point && point <= iv.end)
+                .Select(iv => iv.offset)
+                .OrderBy(o => o)
+                .ToList();
+
+            var actual = tree.FindNodesAt(point).OrderBy(o => o).ToList();
+
+            Assert.Equal(expected, actual);
+        }
+    }
+
+    [Fact]
+    public void IntervalTree_FindNodesAt_LargeTree_FindsNeedleIntervals()
+    {
+        // Arrange - 100_000 background intervals covering nothing in the middle,
+        // plus a few "needles" a linear scan would have to walk the whole list for.
+        var tree = new IntervalTree();
+        const uint needleOffset = 4_242_424u;
+        const int count = 100_000;
+        for (int i = 0; i < count; i++)
+        {
+            var start = (uint)i * 10;
+            tree.Add(start, start + 3, (uint)(i + 1)); // [i*10, i*10+3]
+        }
+        tree.Add(500_000, 600_000, needleOffset);
+
+        // Act & Assert - 550005 falls in a gap between background intervals (i*10+3 < 550005 < 550010)
+        Assert.Equal(new List<uint> { needleOffset }, tree.FindNodesAt(550005));
+        var hits = tree.FindNodesAt(250_000); // inside a single background interval
+        Assert.Single(hits);
+        var boundary = tree.FindNodesAt(500_000);
+        Assert.Contains(needleOffset, boundary);
+        Assert.Equal(2, boundary.Count); // background [500_000,500_003] + needle
+    }
+
+    [Fact]
+    public void IntervalTree_FindNodesAt_AfterAddInvalidatesIndex_UsesFreshData()
+    {
+        // Arrange
+        var tree = new IntervalTree();
+        tree.Add(0, 10, 100);
+
+        // Prime the centered index with a first query
+        Assert.Single(tree.FindNodesAt(5));
+
+        // Act - mutate after the index has been built
+        tree.Add(20, 30, 200);
+
+        // Assert - the new interval is found (index was invalidated and rebuilt)
+        Assert.Equal(new List<uint> { 200u }, tree.FindNodesAt(25));
+        Assert.Equal(new List<uint> { 100u }, tree.FindNodesAt(5));
+    }
+
+    [Fact]
+    public void IntervalTree_FindNodesAt_SerializedRoundTrip_MatchesOriginal()
+    {
+        // Arrange
+        var tree = new IntervalTree();
+        var random = new Random(42);
+        for (int i = 0; i < 500; i++)
+        {
+            var start = (uint)random.Next(0, 5000);
+            tree.Add(start, start + (uint)random.Next(0, 100), (uint)(i + 1));
+        }
+
+        var deserialized = IntervalTree.Deserialize(tree.Serialize());
+
+        // Act & Assert
+        for (uint point = 0; point < 5100; point += 7)
+        {
+            var expected = tree.FindNodesAt(point).OrderBy(o => o).ToList();
+            var actual = deserialized.FindNodesAt(point).OrderBy(o => o).ToList();
+            Assert.Equal(expected, actual);
+        }
+    }
 }

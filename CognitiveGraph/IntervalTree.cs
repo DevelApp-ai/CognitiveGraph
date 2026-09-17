@@ -27,15 +27,24 @@ namespace CognitiveGraph;
 /// High-performance interval tree for spatial querying of source code locations.
 /// Stores intervals in a serializable format for efficient range queries.
 /// </summary>
+/// <remarks>
+/// Queries are answered through a centered interval tree index (built lazily on first
+/// query, invalidated by <see cref="Add"/>) in O(log n + k log k) time, where k is the
+/// number of matching intervals (O(log n) index walk plus an O(k log k) sort that
+/// restores ascending-Start result order). The serialized layout is unchanged: a 32-bit
+/// node count followed by the intervals sorted by <see cref="IntervalNode.Start"/>.
+/// </remarks>
 public sealed class IntervalTree
 {
     private readonly List<IntervalNode> _nodes;
     private bool _isSorted;
+    private CenteredIntervalIndex? _index;
 
     public IntervalTree()
     {
         _nodes = new List<IntervalNode>();
         _isSorted = true;
+        _index = null;
     }
 
     /// <summary>
@@ -48,25 +57,39 @@ public sealed class IntervalTree
 
         _nodes.Add(new IntervalNode(start, end, nodeOffset));
         _isSorted = false;
+        _index = null;
     }
 
     /// <summary>
-    /// Finds all nodes that contain the specified byte offset
+    /// Finds all nodes that contain the specified byte offset.
+    /// Results are ordered by ascending interval <see cref="IntervalNode.Start"/>
+    /// (matching the serialized node order, which the historical linear scan
+    /// also produced). Query cost is O(log n + k log k): an O(log n) walk of the
+    /// centered interval index plus an O(k log k) sort of the k matches.
     /// </summary>
     public List<uint> FindNodesAt(uint byteOffset)
     {
         EnsureSorted();
-        
+
         var result = new List<uint>();
-        
-        foreach (var node in _nodes)
-        {
-            if (node.Start <= byteOffset && byteOffset <= node.End)
-            {
-                result.Add(node.NodeOffset);
-            }
-        }
-        
+        if (_nodes.Count == 0)
+            return result;
+
+        // The index is built once per tree instance (Add invalidates it). CognitiveGraph
+        // caches the deserialized tree, so the build cost is amortized across all queries.
+        _index ??= CenteredIntervalIndex.Build(_nodes);
+
+        // Collect matching interval indices, then order them. Because _nodes is sorted
+        // by Start, ascending index order is ascending Start order — identical to the
+        // output of the original linear scan over the sorted node list.
+        var matches = new List<int>();
+        _index.FindNodesAt(byteOffset, matches);
+        if (matches.Count > 1)
+            matches.Sort();
+
+        foreach (var i in matches)
+            result.Add(_nodes[i].NodeOffset);
+
         return result;
     }
 
@@ -76,7 +99,7 @@ public sealed class IntervalTree
     public byte[] Serialize()
     {
         EnsureSorted();
-        
+
         var bufferSize = sizeof(uint) + (_nodes.Count * IntervalNode.SIZE);
         var buffer = new byte[bufferSize];
         var offset = 0;
@@ -140,7 +163,7 @@ public sealed class IntervalTree
     {
         var size = Marshal.SizeOf<T>();
         var bytes = new byte[size];
-        
+
         unsafe
         {
             fixed (byte* ptr = bytes)
@@ -148,7 +171,7 @@ public sealed class IntervalTree
                 Marshal.StructureToPtr(value, (IntPtr)ptr, false);
             }
         }
-        
+
         return bytes;
     }
 
@@ -162,6 +185,180 @@ public sealed class IntervalTree
 }
 
 /// <summary>
+/// Centered interval tree for stabbing queries ("which intervals contain point p?").
+/// Answers in O(log n + k) (unordered); built in O(n log n) time and O(n) extra space.
+/// </summary>
+/// <remarks>
+/// Each tree node picks a center point X (the Start of the median interval, so the
+/// tree is balanced by construction). Intervals containing X are stored at the tree
+/// node twice — sorted by Start ascending and by End descending — which lets a query
+/// stop scanning as soon as an interval cannot contain the query point. Intervals
+/// entirely left of X (End &lt; X) go to the left subtree; intervals entirely right of X
+/// (Start &gt; X) go to the right subtree. Every interval is stored at exactly one
+/// tree node, so total storage is O(n).
+/// </remarks>
+internal sealed class CenteredIntervalIndex
+{
+    private readonly IntervalNode[] _nodes;     // sorted by Start ascending
+    private readonly uint[] _centers;           // center point X per tree node
+    private readonly int[] _left;               // left child index per tree node (-1 = none)
+    private readonly int[] _right;              // right child index per tree node (-1 = none)
+    private readonly int[][] _byStart;          // per tree node: interval indices, Start ascending
+    private readonly int[][] _byEndDescending;  // per tree node: interval indices, End descending
+
+    private CenteredIntervalIndex(
+        IntervalNode[] nodes,
+        uint[] centers,
+        int[] left,
+        int[] right,
+        int[][] byStart,
+        int[][] byEndDescending)
+    {
+        _nodes = nodes;
+        _centers = centers;
+        _left = left;
+        _right = right;
+        _byStart = byStart;
+        _byEndDescending = byEndDescending;
+    }
+
+    /// <summary>
+    /// Builds a centered interval index over intervals sorted by Start.
+    /// </summary>
+    public static CenteredIntervalIndex Build(IReadOnlyList<IntervalNode> sortedNodes)
+    {
+        var nodes = new IntervalNode[sortedNodes.Count];
+        for (int i = 0; i < sortedNodes.Count; i++)
+            nodes[i] = sortedNodes[i];
+
+        var indices = new int[nodes.Length];
+        for (int i = 0; i < indices.Length; i++)
+            indices[i] = i;
+
+        var centers = new List<uint>();
+        var left = new List<int>();
+        var right = new List<int>();
+        var byStart = new List<int[]>();
+        var byEndDescending = new List<int[]>();
+
+        BuildNode(nodes, indices, centers, left, right, byStart, byEndDescending);
+
+        return new CenteredIntervalIndex(
+            nodes,
+            centers.ToArray(),
+            left.ToArray(),
+            right.ToArray(),
+            byStart.ToArray(),
+            byEndDescending.ToArray());
+    }
+
+    /// <summary>
+    /// Recursively builds the tree over <paramref name="indices"/> (sorted by Start).
+    /// Returns the tree-node index, or -1 for an empty range.
+    /// </summary>
+    private static int BuildNode(
+        IntervalNode[] nodes,
+        int[] indices,
+        List<uint> centers,
+        List<int> left,
+        List<int> right,
+        List<int[]> byStart,
+        List<int[]> byEndDescending)
+    {
+        if (indices.Length == 0)
+            return -1;
+
+        // Median Start keeps the tree balanced: both child ranges are at most half the size.
+        var center = nodes[indices[indices.Length / 2]].Start;
+
+        var atNode = new List<int>();
+        var leftIndices = new List<int>();
+        var rightIndices = new List<int>();
+
+        foreach (var i in indices)
+        {
+            // Indices are sorted by Start, so the three filters below preserve that order
+            // in each partition and keep `atNode` sorted by Start ascending.
+            if (nodes[i].End < center)
+                leftIndices.Add(i);
+            else if (nodes[i].Start > center)
+                rightIndices.Add(i);
+            else
+                atNode.Add(i); // contains center: Start <= center <= End
+        }
+
+        var treeNodeIndex = centers.Count;
+        centers.Add(center);
+        byStart.Add(atNode.ToArray());
+
+        // Same intervals at this tree node, ordered by End descending for queries right of center.
+        var endDescending = new List<int>(atNode);
+        endDescending.Sort((a, b) => nodes[b].End.CompareTo(nodes[a].End));
+        byEndDescending.Add(endDescending.ToArray());
+
+        // Reserve this node's child slots before recursing: the recursive calls append
+        // their own entries to the same lists, so the slots must already be claimed.
+        left.Add(-1);
+        right.Add(-1);
+
+        left[treeNodeIndex] = BuildNode(nodes, leftIndices.ToArray(), centers, left, right, byStart, byEndDescending);
+        right[treeNodeIndex] = BuildNode(nodes, rightIndices.ToArray(), centers, left, right, byStart, byEndDescending);
+
+        return treeNodeIndex;
+    }
+
+    /// <summary>
+    /// Adds the indices (into <see cref="_nodes"/>) of all intervals containing
+    /// <paramref name="point"/> to <paramref name="matches"/>. Iterative walk,
+    /// O(log n + k). The caller orders the collected indices, which restores
+    /// ascending-Start result order because <see cref="_nodes"/> is Start-sorted.
+    /// </summary>
+    public void FindNodesAt(uint point, List<int> matches)
+    {
+        var node = 0;
+        while (node >= 0)
+        {
+            var center = _centers[node];
+
+            if (point == center)
+            {
+                // Every interval at this tree node contains the center, hence the point.
+                foreach (var i in _byStart[node])
+                    matches.Add(i);
+                return; // subtrees lie strictly left/right of center; cannot contain it
+            }
+
+            if (point < center)
+            {
+                // Intervals at this node all contain center > point, so they contain the
+                // point exactly when Start <= point. Sorted by Start: stop at first miss.
+                foreach (var i in _byStart[node])
+                {
+                    if (_nodes[i].Start > point)
+                        break;
+                    matches.Add(i);
+                }
+
+                node = _left[node];
+            }
+            else // point > center
+            {
+                // Intervals at this node all contain center < point, so they contain the
+                // point exactly when End >= point. Sorted by End desc: stop at first miss.
+                foreach (var i in _byEndDescending[node])
+                {
+                    if (_nodes[i].End < point)
+                        break;
+                    matches.Add(i);
+                }
+
+                node = _right[node];
+            }
+        }
+    }
+}
+
+/// <summary>
 /// Binary layout for interval tree nodes
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -171,12 +368,12 @@ public readonly struct IntervalNode
     /// Start byte offset in source code
     /// </summary>
     public readonly uint Start;
-    
+
     /// <summary>
     /// End byte offset in source code
     /// </summary>
     public readonly uint End;
-    
+
     /// <summary>
     /// Offset to the symbol node in the graph buffer
     /// </summary>

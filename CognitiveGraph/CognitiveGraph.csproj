@@ -23,12 +23,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="GraphQL.SystemTextJson" Version="8.0.2" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
     <PackageReference Include="GraphQL" Version="8.0.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="../PACKAGE_README.md" Pack="true" PackagePath="\"/>
+    <None Include="../PACKAGE_README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

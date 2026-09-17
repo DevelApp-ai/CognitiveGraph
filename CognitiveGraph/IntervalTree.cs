@@ -29,9 +29,10 @@ namespace CognitiveGraph;
 /// </summary>
 /// <remarks>
 /// Queries are answered through a centered interval tree index (built lazily on first
-/// query, invalidated by <see cref="Add"/>) in O(log n + k) time, where k is the number
-/// of matching intervals. The serialized layout is unchanged: a 32-bit node count
-/// followed by the intervals sorted by <see cref="IntervalNode.Start"/>.
+/// query, invalidated by <see cref="Add"/>) in O(log n + k log k) time, where k is the
+/// number of matching intervals (O(log n) index walk plus an O(k log k) sort that
+/// restores ascending-Start result order). The serialized layout is unchanged: a 32-bit
+/// node count followed by the intervals sorted by <see cref="IntervalNode.Start"/>.
 /// </remarks>
 public sealed class IntervalTree
 {
@@ -61,7 +62,10 @@ public sealed class IntervalTree
 
     /// <summary>
     /// Finds all nodes that contain the specified byte offset.
-    /// Runs in O(log n + k) via the centered interval index.
+    /// Results are ordered by ascending interval <see cref="IntervalNode.Start"/>
+    /// (matching the serialized node order, which the historical linear scan
+    /// also produced). Query cost is O(log n + k log k): an O(log n) walk of the
+    /// centered interval index plus an O(k log k) sort of the k matches.
     /// </summary>
     public List<uint> FindNodesAt(uint byteOffset)
     {
@@ -74,7 +78,17 @@ public sealed class IntervalTree
         // The index is built once per tree instance (Add invalidates it). CognitiveGraph
         // caches the deserialized tree, so the build cost is amortized across all queries.
         _index ??= CenteredIntervalIndex.Build(_nodes);
-        _index.FindNodesAt(byteOffset, result);
+
+        // Collect matching interval indices, then order them. Because _nodes is sorted
+        // by Start, ascending index order is ascending Start order — identical to the
+        // output of the original linear scan over the sorted node list.
+        var matches = new List<int>();
+        _index.FindNodesAt(byteOffset, matches);
+        if (matches.Count > 1)
+            matches.Sort();
+
+        foreach (var i in matches)
+            result.Add(_nodes[i].NodeOffset);
 
         return result;
     }
@@ -172,7 +186,7 @@ public sealed class IntervalTree
 
 /// <summary>
 /// Centered interval tree for stabbing queries ("which intervals contain point p?").
-/// Answers in O(log n + k); built in O(n log n) time and O(n) extra space.
+/// Answers in O(log n + k) (unordered); built in O(n log n) time and O(n) extra space.
 /// </summary>
 /// <remarks>
 /// Each tree node picks a center point X (the Start of the median interval, so the
@@ -294,10 +308,12 @@ internal sealed class CenteredIntervalIndex
     }
 
     /// <summary>
-    /// Adds all node offsets whose interval contains <paramref name="point"/> to
-    /// <paramref name="result"/>. Iterative walk, O(log n + k).
+    /// Adds the indices (into <see cref="_nodes"/>) of all intervals containing
+    /// <paramref name="point"/> to <paramref name="matches"/>. Iterative walk,
+    /// O(log n + k). The caller orders the collected indices, which restores
+    /// ascending-Start result order because <see cref="_nodes"/> is Start-sorted.
     /// </summary>
-    public void FindNodesAt(uint point, List<uint> result)
+    public void FindNodesAt(uint point, List<int> matches)
     {
         var node = 0;
         while (node >= 0)
@@ -308,7 +324,7 @@ internal sealed class CenteredIntervalIndex
             {
                 // Every interval at this tree node contains the center, hence the point.
                 foreach (var i in _byStart[node])
-                    result.Add(_nodes[i].NodeOffset);
+                    matches.Add(i);
                 return; // subtrees lie strictly left/right of center; cannot contain it
             }
 
@@ -320,7 +336,7 @@ internal sealed class CenteredIntervalIndex
                 {
                     if (_nodes[i].Start > point)
                         break;
-                    result.Add(_nodes[i].NodeOffset);
+                    matches.Add(i);
                 }
 
                 node = _left[node];
@@ -333,7 +349,7 @@ internal sealed class CenteredIntervalIndex
                 {
                     if (_nodes[i].End < point)
                         break;
-                    result.Add(_nodes[i].NodeOffset);
+                    matches.Add(i);
                 }
 
                 node = _right[node];

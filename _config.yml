@@ -1,21 +1,25 @@
-# Site settings
-title: "CognitiveGraph"
-description: "High-Performance Zero-Copy Cognitive Graph for Advanced Code Analysis"
-url: "https://develapp-ai.github.io"
-baseurl: "/CognitiveGraph"
+# Jekyll configuration for GitHub Pages.
+#
+# Unified format shared by the DevelApp-ai ecosystem Pages sites:
+# Minotaur, CognitiveGraph, ENFAStepLexer-StepParser and Minotaur-Grammars
+# all use this same layout — only title/description and the repo-specific
+# `exclude` list differ. Keep them in sync when changing this file.
 
-# Theme
-remote_theme: pages-themes/leap-day@v0.2.0
-plugins:
-- jekyll-remote-theme
-- jekyll-sitemap
+theme: jekyll-theme-leap-day
+title: CognitiveGraph
+description: High-Performance Zero-Copy Cognitive Graph for Advanced Code Analysis
+show_downloads: true
 
 # Repository information
-repository: "DevelApp-ai/CognitiveGraph"
+repository: DevelApp-ai/CognitiveGraph
 github:
   repository_name: "CognitiveGraph"
   repository_nwo: "DevelApp-ai/CognitiveGraph"
   owner_name: "DevelApp-ai"
+
+# Site URL for sitemap generation
+url: https://develapp-ai.github.io
+baseurl: /CognitiveGraph
 
 # Build settings
 markdown: kramdown
@@ -23,44 +27,45 @@ highlighter: rouge
 kramdown:
   input: GFM
   hard_wrap: false
-  
-# Collections
-collections:
-  docs:
-    output: true
-    permalink: /:collection/:name/
 
-# Navigation
+# Plugins (GitHub Pages supported plugins only)
+plugins:
+  - jekyll-sitemap
+
+# Render every Markdown file with the theme layout: the root README and
+# everything under docs/ becomes a themed page, so the full documentation
+# set is browsable on the site, not just the files a theme links by default.
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"
+
+# Site navigation (used by the theme where supported; also serves as the
+# canonical link list kept identical across the ecosystem sites)
 navigation:
   - title: Home
     url: /
-  - title: Documentation
-    url: /docs/
-  - title: API Reference
-    url: /docs/api-reference/
-  - title: Examples
-    url: /examples/
   - title: GitHub
     url: https://github.com/DevelApp-ai/CognitiveGraph
 
 # Exclude files from processing
 exclude:
-  - vendor/
+  - .git
+  - .github
+  - .gitignore
   - Gemfile
   - Gemfile.lock
-  - node_modules/
-  - "*.csproj"
-  - "*.sln"
+  - node_modules
+  - vendor
+@@EXCLUDES@@
   - bin/
   - obj/
   - packages/
   - CognitiveGraph/
   - CognitiveGraph.Tests/
-  - .git/
-  - .github/
-  - .gitignore
   - GitVersion.yml
-
-# Include files that start with underscores
-include:
-  - _pages
+  - VERSION_UPDATE_NOTES.md
+  - "*.csproj"
+  - "*.sln"

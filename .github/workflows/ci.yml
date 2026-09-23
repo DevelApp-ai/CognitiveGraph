@@ -201,6 +201,37 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
+    # Fail fast with a clear message if the token cannot access GitHub Packages,
+    # instead of only a bare 'dotnet nuget push' failure (issue #47).
+    - name: Check GitHub Packages publish prerequisites
+      run: |
+        if [ -z "${GITHUB_TOKEN}" ]; then
+          echo "❌ ERROR: GITHUB_TOKEN is not available to this job."
+          echo "GITHUB_TOKEN is automatically provided to Actions runs; check that"
+          echo "the job is not overriding it with an unset secret."
+          exit 1
+        fi
+        STATUS=$(curl -sS -o /tmp/ghpkgcheck.json -w '%{http_code}' \
+          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/user/packages?package_type=nuget" || echo "ERR")
+        if [ "${STATUS}" != "200" ]; then
+          echo "❌ ERROR: GITHUB_TOKEN cannot access GitHub Packages (HTTP ${STATUS})."
+          echo ""
+          cat /tmp/ghpkgcheck.json || true
+          echo ""
+          echo "The 'Publish to GitHub Packages' step requires the workflow to have"
+          echo "'packages: write' permission. To fix:"
+          echo "1. Ensure the 'permissions:' block in .github/workflows/ci.yml includes 'packages: write'"
+          echo "2. Check organization Settings > Packages for org-level publishing restrictions"
+          echo "3. If GITHUB_TOKEN cannot be used, create a GITHUB_PAT secret with"
+          echo "   'write:packages' scope and use it for the publish"
+          exit 1
+        fi
+        echo "✓ GITHUB_TOKEN has GitHub Packages access"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
     - name: Publish to GitHub Packages
       run: |
         # Try multiple authentication approaches for GitHub Packages
@@ -290,13 +321,6 @@ jobs:
         name: nuget-package
         path: nupkgs/
     
-    - name: Create Release Tag
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git tag -a "v${{ steps.version.outputs.semVer }}" -m "Release v${{ steps.version.outputs.semVer }}"
-        git push origin "v${{ steps.version.outputs.semVer }}"
-    
     - name: Validate Release Conditions
       run: |
         echo "Validating release conditions..."
@@ -317,37 +341,71 @@ jobs:
         fi
         
         echo "✓ Release conditions validated successfully"
-
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ steps.version.outputs.semVer }}
-        name: Release v${{ steps.version.outputs.semVer }}
-        body: |
-          ## Release v${{ steps.version.outputs.semVer }}
-          
-          ### NuGet Package
-          - **Package**: DevelApp.CognitiveGraph
-          - **Version**: ${{ steps.version.outputs.semVer }}
-          - **Available on**: [NuGet.org](https://www.nuget.org/packages/DevelApp.CognitiveGraph/${{ steps.version.outputs.semVer }}) and [GitHub Packages](https://github.com/DevelApp-ai/CognitiveGraph/packages)
-          
-          ### Installation
-          ```bash
-          dotnet add package DevelApp.CognitiveGraph --version ${{ steps.version.outputs.semVer }}
-          ```
-        draft: false
-        prerelease: false
-        files: |
-          nupkgs/DevelApp.CognitiveGraph.${{ steps.version.outputs.semVer }}.nupkg
     
-    - name: Debug GitHub Context
+    # Publish BEFORE tagging: a failed publish must not leave a tag/release
+    # pointing at a version that was never published (the cause of the ghost
+    # v1.1.10/v1.1.11 releases; issue #47).
+    - name: Check NuGet.org publish prerequisites
       run: |
-        echo "Repository owner: ${{ github.repository_owner }}"
-        echo "Repository: ${{ github.repository }}"
-        echo "Actor: ${{ github.actor }}"
-        echo "Token length: ${#GITHUB_TOKEN}"
+        if [ -z "${NUGET_API_KEY}" ]; then
+          echo "❌ ERROR: The NUGET_API_KEY secret is not configured for this repository."
+          echo ""
+          echo "The 'Publish to NuGet.org' step requires a NuGet.org API key with"
+          echo "push permission for the 'DevelApp.CognitiveGraph' package. This is"
+          echo "why the CI/CD pipeline badge shows failing while all test and"
+          echo "package jobs are green (issue #47)."
+          echo ""
+          echo "To fix:"
+          echo "1. Create an API key at https://www.nuget.org/account/apikeys"
+          echo "   (scope: push, package owner of DevelApp.CognitiveGraph)"
+          echo "2. Add it as the NUGET_API_KEY secret in"
+          echo "   Settings > Secrets and variables > Actions > Repository secrets"
+          exit 1
+        fi
+        echo "✓ NUGET_API_KEY secret is configured"
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+    
+    - name: Check if version already exists on NuGet.org
+      id: nuget-exists
+      run: |
+        VERSION="${{ steps.version.outputs.nuGetVersionV2 }}"
+        if curl -fsSI "https://api.nuget.org/v3-flatcontainer/develapp.cognitivegraph/${VERSION}.json" >/dev/null 2>&1; then
+          echo "Version ${VERSION} already exists on NuGet.org (e.g. published manually); skipping publish."
+          echo "skip=true" >> $GITHUB_OUTPUT
+        else
+          echo "Version ${VERSION} not yet on NuGet.org; will publish."
+          echo "skip=false" >> $GITHUB_OUTPUT
+        fi
+    
+    # Fail fast with a clear message if the token cannot access GitHub Packages,
+    # instead of only a bare 'dotnet nuget push' failure (issue #47).
+    - name: Check GitHub Packages publish prerequisites
+      run: |
+        if [ -z "${GITHUB_TOKEN}" ]; then
+          echo "❌ ERROR: GITHUB_TOKEN is not available to this job."
+          echo "GITHUB_TOKEN is automatically provided to Actions runs; check that"
+          echo "the job is not overriding it with an unset secret."
+          exit 1
+        fi
+        STATUS=$(curl -sS -o /tmp/ghpkgcheck.json -w '%{http_code}' \
+          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/user/packages?package_type=nuget" || echo "ERR")
+        if [ "${STATUS}" != "200" ]; then
+          echo "❌ ERROR: GITHUB_TOKEN cannot access GitHub Packages (HTTP ${STATUS})."
+          echo ""
+          cat /tmp/ghpkgcheck.json || true
+          echo ""
+          echo "The 'Publish to GitHub Packages' step requires the workflow to have"
+          echo "'packages: write' permission. To fix:"
+          echo "1. Ensure the 'permissions:' block in .github/workflows/ci.yml includes 'packages: write'"
+          echo "2. Check organization Settings > Packages for org-level publishing restrictions"
+          echo "3. If GITHUB_TOKEN cannot be used, create a GITHUB_PAT secret with"
+          echo "   'write:packages' scope and use it for the publish"
+          exit 1
+        fi
+        echo "✓ GITHUB_TOKEN has GitHub Packages access"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
@@ -376,12 +434,45 @@ jobs:
           echo "3. Repository settings not allowing GitHub Packages"
           echo ""
           echo "To resolve, consider:"
-          echo "1. Use a Personal Access Token with 'write:packages' scope in secrets"
-          echo "2. Check organization package publishing settings"
+          echo "1. Use a Personal Access Token with 'write:packages' scope"
+          echo "2. Check organization package publishing settings"  
           echo "3. Verify repository has GitHub Packages enabled"
-          echo "4. Contact repository administrator for token permissions"
           exit 1
         fi
     
     - name: Publish to NuGet.org
+      if: steps.nuget-exists.outputs.skip != 'true'
       run: dotnet nuget push nupkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+    
+    # Tag and release only after both publishes succeeded, so a failed publish
+    # can be retried with the same version on the next push.
+    - name: Create Release Tag
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a "v${{ steps.version.outputs.semVer }}" -m "Release v${{ steps.version.outputs.semVer }}"
+        git push origin "v${{ steps.version.outputs.semVer }}"
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.version.outputs.semVer }}
+        name: Release v${{ steps.version.outputs.semVer }}
+        body: |
+          ## Release v${{ steps.version.outputs.semVer }}
+          
+          ### NuGet Package
+          - **Package**: DevelApp.CognitiveGraph
+          - **Version**: ${{ steps.version.outputs.semVer }}
+          - **Available on**: [NuGet.org](https://www.nuget.org/packages/DevelApp.CognitiveGraph/${{ steps.version.outputs.semVer }}) and [GitHub Packages](https://github.com/DevelApp-ai/CognitiveGraph/packages)
+          
+          ### Installation
+          ```bash
+          dotnet add package DevelApp.CognitiveGraph --version ${{ steps.version.outputs.semVer }}
+          ```
+        draft: false
+        prerelease: false
+        files: |
+          nupkgs/DevelApp.CognitiveGraph.${{ steps.version.outputs.semVer }}.nupkg

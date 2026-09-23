@@ -201,6 +201,37 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
+    # Fail fast with a clear message if the token cannot access GitHub Packages,
+    # instead of only a bare 'dotnet nuget push' failure (issue #47).
+    - name: Check GitHub Packages publish prerequisites
+      run: |
+        if [ -z "${GITHUB_TOKEN}" ]; then
+          echo "❌ ERROR: GITHUB_TOKEN is not available to this job."
+          echo "GITHUB_TOKEN is automatically provided to Actions runs; check that"
+          echo "the job is not overriding it with an unset secret."
+          exit 1
+        fi
+        STATUS=$(curl -sS -o /tmp/ghpkgcheck.json -w '%{http_code}' \
+          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/user/packages?package_type=nuget" || echo "ERR")
+        if [ "${STATUS}" != "200" ]; then
+          echo "❌ ERROR: GITHUB_TOKEN cannot access GitHub Packages (HTTP ${STATUS})."
+          echo ""
+          cat /tmp/ghpkgcheck.json || true
+          echo ""
+          echo "The 'Publish to GitHub Packages' step requires the workflow to have"
+          echo "'packages: write' permission. To fix:"
+          echo "1. Ensure the 'permissions:' block in .github/workflows/ci.yml includes 'packages: write'"
+          echo "2. Check organization Settings > Packages for org-level publishing restrictions"
+          echo "3. If GITHUB_TOKEN cannot be used, create a GITHUB_PAT secret with"
+          echo "   'write:packages' scope and use it for the publish"
+          exit 1
+        fi
+        echo "✓ GITHUB_TOKEN has GitHub Packages access"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
     - name: Publish to GitHub Packages
       run: |
         # Try multiple authentication approaches for GitHub Packages
@@ -346,6 +377,37 @@ jobs:
           echo "Version ${VERSION} not yet on NuGet.org; will publish."
           echo "skip=false" >> $GITHUB_OUTPUT
         fi
+    
+    # Fail fast with a clear message if the token cannot access GitHub Packages,
+    # instead of only a bare 'dotnet nuget push' failure (issue #47).
+    - name: Check GitHub Packages publish prerequisites
+      run: |
+        if [ -z "${GITHUB_TOKEN}" ]; then
+          echo "❌ ERROR: GITHUB_TOKEN is not available to this job."
+          echo "GITHUB_TOKEN is automatically provided to Actions runs; check that"
+          echo "the job is not overriding it with an unset secret."
+          exit 1
+        fi
+        STATUS=$(curl -sS -o /tmp/ghpkgcheck.json -w '%{http_code}' \
+          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/user/packages?package_type=nuget" || echo "ERR")
+        if [ "${STATUS}" != "200" ]; then
+          echo "❌ ERROR: GITHUB_TOKEN cannot access GitHub Packages (HTTP ${STATUS})."
+          echo ""
+          cat /tmp/ghpkgcheck.json || true
+          echo ""
+          echo "The 'Publish to GitHub Packages' step requires the workflow to have"
+          echo "'packages: write' permission. To fix:"
+          echo "1. Ensure the 'permissions:' block in .github/workflows/ci.yml includes 'packages: write'"
+          echo "2. Check organization Settings > Packages for org-level publishing restrictions"
+          echo "3. If GITHUB_TOKEN cannot be used, create a GITHUB_PAT secret with"
+          echo "   'write:packages' scope and use it for the publish"
+          exit 1
+        fi
+        echo "✓ GITHUB_TOKEN has GitHub Packages access"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Publish to GitHub Packages
       run: |

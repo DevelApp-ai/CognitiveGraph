@@ -30,7 +30,8 @@ A revolutionary approach to code analysis that unifies syntactic ambiguity handl
 ### Production Ready
 - **Comprehensive Testing**: 47 unit tests covering core functionality, performance, and edge cases
 - **Multi-Platform CI/CD**: Automated testing on Windows, Linux, and macOS
-- **NuGet Distribution**: Ready-to-use package with complete API documentation
+- **NuGet Distribution**: Ready-to-use package with complete API documenta
+tion
 - **Performance Optimized**: Designed for large codebases with minimal GC pressure
 
 ## 📦 Installation
@@ -86,16 +87,22 @@ if (rootNode.IsAmbiguous)
 
 ## 📚 Documentation
 
-- **[Architecture Guide](docs/Architecture.html)** - Detailed system architecture and design principles
-- **[API Reference](docs/API_REFERENCE.html)** - Complete API documentation with examples
-- **[Platform Compatibility Guide](docs/PLATFORM_COMPATIBILITY.html)** - Detailed platform support information
-- **[Troubleshooting Guide](docs/TROUBLESHOOTING.html)** - Common issues and solutions
+- **[Architecture Guide](docs/Architecture)** - Detailed system architecture and design principles
+- **[API Reference](docs/API_REFERENCE)** - Complete API documentation with examples
+- **[Platform Compatibility Guide](docs/PLATFORM_COMPATIBILITY)** - Detailed platform support information
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING)** - Common issues and solutions
+- **[Dual-Schema Implementation](docs/DUAL_SCHEMA_IMPLEMENTATION)** - Summary of the dual-schema (V1 compact / V2 universal) architecture implementation
 - **[Examples](https://github.com/DevelApp-ai/CognitiveGraph/tree/main/CognitiveGraph/Examples)** - Sample code and use cases
+
+Additional design documents (Word/PDF) are available in the
+[docs folder](https://github.com/DevelApp-ai/CognitiveGraph/tree/main/docs)
+on GitHub.
 
 ## 🌍 Platform Compatibility
 
 | Platform | Architecture | Status | Performance |
-|----------|-------------|---------|-------------|
+|----------|-------------
+|---------|-------------|
 | **Windows** | x64, x86, ARM64 | ✅ Full Support | ⭐⭐⭐⭐⭐ |
 | **Linux** | x64, ARM64 | ✅ Full Support | ⭐⭐⭐⭐⭐ |
 | **macOS** | x64, ARM64 (M1/M2) | ✅ Full Support | ⭐⭐⭐⭐⭐ |
@@ -157,7 +164,8 @@ using var mmf = MemoryMappedFile.CreateFromFile("huge-graph.bin");
 using var accessor = mmf.CreateViewAccessor();
 unsafe
 {
-    byte* ptr = (byte*)accessor.SafeMemoryMappedViewHandle.DangerousGetHandle();
+    byte* ptr = (byte*)accessor.SafeMemoryMappedViewHandle.DangerousGet
+Handle();
     var buffer = new CognitiveGraphBuffer(new ReadOnlySpan<byte>(ptr, (int)accessor.Capacity));
     using var graph = new CognitiveGraph(buffer);
     // Process without loading entire file into memory

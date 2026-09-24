@@ -1,3 +1,8 @@
+---
+layout: default
+title: CognitiveGraph Architecture
+---
+
 # CognitiveGraph Architecture
 
 ## Overview
@@ -39,7 +44,8 @@ Traditional Abstract Syntax Trees (ASTs) cannot represent syntactic ambiguity. C
 
 - **Ambiguity Preservation**: Multiple parse interpretations coexist in the same structure
 - **Packed Nodes**: Represent alternative parse trees compactly
-- **Efficient Storage**: Shared subtrees reduce memory overhead
+- **Efficient Storage**: 
+Shared subtrees reduce memory overhead
 - **Complete Coverage**: No loss of parsing information
 
 ```
@@ -92,7 +98,8 @@ Beyond syntax, CognitiveGraph captures semantic relationships through CPG edges:
 
 #### 1. Schema Layer (`CognitiveGraph.Schema`)
 
-Defines the binary layout of graph data structures:
+Defines the binary layout of graph data 
+structures:
 
 - **`GraphHeader`**: File format metadata (40 bytes)
 - **`SymbolNodeData`**: AST node binary layout
@@ -149,7 +156,8 @@ struct GraphHeader {                 // [StructLayout(Sequential, Pack = 1)]
     uint32_t node_count;            // Total number of symbol/packed nodes
     uint32_t edge_count;            // Total number of CPG edges
     uint32_t source_text_length;    // Length of the original source text
-    uint32_t source_text_offset;    // Offset to the source text copy
+    uint32_t source_text_offset
+;    // Offset to the source text copy
     uint32_t interval_tree_offset;  // Offset to the spatial interval-tree index
 // Total: 4 + 2 + 2 + 6×4 = 32 bytes (GraphHeader.SIZE)
 };
@@ -197,7 +205,8 @@ struct SymbolNodeData {
 > **Note:** These figures are design targets, not measured results. The repository does
 > not yet contain a benchmark suite; tracked follow-up: add BenchmarkDotNet projects.
 
-| Operation | Time | Memory | Notes |
+| Operati
+on | Time | Memory | Notes |
 |-----------|------|---------|-------|
 | Node Creation | ~50ns | 64 bytes | Average per node |
 | Property Access | ~10ns | 0 bytes | Zero allocation |
@@ -273,7 +282,8 @@ public static class CustomEdgeTypes
 // Real-time code analysis
 public class CognitiveLanguageServer
 {
-    private readonly Dictionary<Uri, CognitiveGraph> _graphs = new();
+    private readonly Dict
+ionary<Uri, CognitiveGraph> _graphs = new();
     
     public void OnDocumentChanged(Uri document, string content)
     {
@@ -337,7 +347,8 @@ Traditional code analysis tools suffer from memory overhead and allocation press
 
 - **Predictable Performance**: No GC pauses or allocation spikes
 - **Massive Scale**: Handle codebases with millions of lines
-- **Real-time Responsiveness**: Suitable for interactive development tools
+- **Real-time Resp
+onsiveness**: Suitable for interactive development tools
 - **Memory Efficiency**: Optimal for memory-constrained environments
 
 ### Why SPPF over AST?

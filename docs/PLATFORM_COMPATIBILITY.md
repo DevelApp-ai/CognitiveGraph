@@ -1,3 +1,8 @@
+---
+layout: default
+title: CognitiveGraph Platform Compatibility
+---
+
 # Platform Compatibility
 
 ## Supported Platforms
@@ -54,7 +59,8 @@ The DevelApp.CognitiveGraph library is designed to work on all platforms support
 
 #### Container Support
 - Compatible with Docker containers
-- Works in Alpine Linux containers (`mcr.microsoft.com/dotnet/runtime:8.0-alpine`)
+- Works in Alpine Linux containers 
+(`mcr.microsoft.com/dotnet/runtime:8.0-alpine`)
 - No special container configuration required
 
 ### Known Limitations

@@ -1,3 +1,8 @@
+---
+layout: default
+title: CognitiveGraph API Reference
+---
+
 # API Reference
 
 ## Overview
@@ -75,7 +80,8 @@ public readonly ref struct SymbolNode
 #### Properties
 
 - **`SymbolID`** - Unique identifier for the symbol
-- **`NodeType`** - Type identifier for the node
+- **
+`NodeType`** - Type identifier for the node
 - **`SourceStart`** - Starting position in source code
 - **`SourceLength`** - Length of source span
 - **`IsAmbiguous`** - Whether this node has multiple parse interpretations
@@ -150,7 +156,8 @@ public readonly ref struct Property
 #### Usage Example
 
 ```csharp
-if (node.TryGetProperty("LineNumber", out var lineProp))
+if (node.TryGet
+Property("LineNumber", out var lineProp))
 {
     if (lineProp.TryAsInt32(out int lineNum))
     {
@@ -230,6 +237,7 @@ using var accessor = mmf.CreateViewAccessor();
 // Resources automatically cleaned up
 ```
 
+
 ## Error Handling
 
 ### Common Exceptions
@@ -303,7 +311,8 @@ Parallel.ForEach(nodeOffsets, offset =>
 ```csharp
 // 1. Build a graph
 using var builder = new CognitiveGraphBuilder();
-var rootOffset = builder.WriteSymbolNode(/* parameters */);
+var rootOffset = builder.WriteSymbo
+lNode(/* parameters */);
 var buffer = builder.Build(rootOffset, sourceCode);
 
 // 2. Read and navigate

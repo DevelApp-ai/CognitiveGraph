@@ -1,3 +1,8 @@
+---
+layout: default
+title: CognitiveGraph Troubleshooting Guide
+---
+
 # Troubleshooting Guide
 
 ## Common Issues and Solutions
@@ -73,7 +78,8 @@ esm.ubuntu.com - Triggering command: /usr/lib/apt/methods/https (dns block)
 2. **Enable Server GC** in your project:
    ```xml
    <PropertyGroup>
-     <ServerGarbageCollection>true</ServerGarbageCollection>
+     <ServerGarbageCollection>true</
+ServerGarbageCollection>
      <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
    </PropertyGroup>
    ```
@@ -152,7 +158,8 @@ Console.WriteLine($"Build time: {stopwatch.ElapsedMilliseconds}ms");
 
 **Symptoms**: Memory usage increases over time
 
-**Diagnostics**:
+**Diagnost
+ics**:
 ```csharp
 // Monitor memory usage
 var before = GC.GetTotalMemory(false);
@@ -235,7 +242,8 @@ error: Response status code does not indicate success: 401 (Unauthorized)
 
 **Solutions**:
 
-1. **Use Personal Access Token** (Recommended for organization repos):
+1. **Use Personal 
+Access Token** (Recommended for organization repos):
    ```yaml
    # In your repository secrets, create GITHUB_PAT with these permissions:
    # - write:packages
@@ -289,7 +297,8 @@ error: Response status code does not indicate success: 401 (Unauthorized)
 
 **Solution**: Use binding redirects or update to compatible versions:
 ```xml
-<PackageReference Include="DevelApp.CognitiveGraph" Version="1.0.0">
+<PackageReference Include="DevelApp.CognitiveGraph" Ver
+sion="1.0.0">
   <ExcludeAssets>runtime</ExcludeAssets>
 </PackageReference>
 ```

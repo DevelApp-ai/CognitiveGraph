@@ -15,8 +15,6 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-
-
 using System.Runtime.InteropServices;
 
 namespace CognitiveGraph.Schema;
@@ -32,17 +30,17 @@ public readonly struct CpgEdgeData
     /// Type of edge (AST_CHILD, CONTROL_FLOW, DATA_FLOW, CALLS, etc.)
     /// </summary>
     public readonly ushort EdgeType;
-    
+
     /// <summary>
     /// Reserved for alignment and future use
     /// </summary>
     public readonly ushort Reserved;
-    
+
     /// <summary>
     /// Offset to the target Symbol Node of the edge
     /// </summary>
     public readonly uint TargetNodeOffset;
-    
+
     /// <summary>
     /// Offset to the list of properties for this edge (e.g., CFG condition)
     /// </summary>
@@ -71,24 +69,43 @@ public enum EdgeType : ushort
     /// Syntactic parent-child relationship (conditional on specific parse)
     /// </summary>
     AST_CHILD = 1,
-    
+
     /// <summary>
     /// Control flow edge connecting statements in execution order
     /// </summary>
     CONTROL_FLOW = 2,
-    
+
     /// <summary>
     /// Data flow edge tracking variable definitions and uses
     /// </summary>
     DATA_FLOW = 3,
-    
+
     /// <summary>
     /// Call relationship from CallExpression to FunctionDeclaration
     /// </summary>
     CALLS = 4,
-    
+
     /// <summary>
     /// Type relationship for type annotations and inferred types
     /// </summary>
-    TYPE = 5
+    TYPE = 5,
+
+    /// <summary>
+    /// Inheritance relationship from a derived type declaration to its base
+    /// class declaration (CognitiveGraph issue #53)
+    /// </summary>
+    INHERITS = 6,
+
+    /// <summary>
+    /// Interface implementation relationship from a type declaration to an
+    /// interface declaration (CognitiveGraph issue #53)
+    /// </summary>
+    IMPLEMENTS = 7,
+
+    /// <summary>
+    /// Usage relationship from a declaration to a type used in its signature
+    /// or body: field/property types, parameter/return types, local variable
+    /// types, instantiations (CognitiveGraph issue #53)
+    /// </summary>
+    USES_TYPE = 8
 }

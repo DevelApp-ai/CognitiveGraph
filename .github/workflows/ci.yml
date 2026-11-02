@@ -44,7 +44,7 @@ jobs:
       run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage" --logger trx --results-directory TestResults
     
     - name: Upload test results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       if: always()
       with:
         name: test-results-${{ matrix.os }}
@@ -52,7 +52,7 @@ jobs:
     
     - name: Upload coverage reports to Codecov
       if: matrix.os == 'ubuntu-latest'
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         files: TestResults/*/coverage.cobertura.xml
         fail_ci_if_error: false
@@ -149,7 +149,7 @@ jobs:
       run: dotnet pack CognitiveGraph/CognitiveGraph.csproj --configuration Release --no-build --output nupkgs/ -p:PackageVersion=${{ steps.version.outputs.nuGetVersionV2 }}
     
     - name: Upload NuGet Package
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: nuget-package
         path: nupkgs/*.nupkg
@@ -187,7 +187,7 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     
     - name: Download NuGet Package
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: nuget-package
         path: nupkgs/
@@ -316,7 +316,7 @@ jobs:
         fi
     
     - name: Download NuGet Package
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: nuget-package
         path: nupkgs/

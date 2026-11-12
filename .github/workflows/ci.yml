@@ -379,6 +379,10 @@ jobs:
     needs: [package, sign]
     # Signing gate (org decision #38): a failed sign job skips this publish.
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write # release tag + release creation
+      packages: write # GitHub Packages
+      id-token: write # OIDC token issuance for NuGet trusted publishing
     
     steps:
     - uses: actions/checkout@v5
@@ -553,26 +557,24 @@ jobs:
         files: |
           nupkgs/DevelApp.CognitiveGraph.${{ steps.version.outputs.semVer }}.nupkg
     
-    - name: Check NuGet.org publish prerequisites
-      run: |
-        if [ -z "${NUGET_API_KEY}" ]; then
-          echo "❌ ERROR: The NUGET_API_KEY secret is not configured for this repository."
-          echo ""
-          echo "The 'Publish to NuGet.org' step requires a NuGet.org API key with"
-          echo "push permission for the 'DevelApp.CognitiveGraph' package. This is"
-          echo "why the CI/CD pipeline badge shows failing while all test and"
-          echo "package jobs are green (issue #47)."
-          echo ""
-          echo "To fix:"
-          echo "1. Create an API key at https://www.nuget.org/account/apikeys"
-          echo "   (scope: push, package owner of DevelApp.CognitiveGraph)"
-          echo "2. Add it as the NUGET_API_KEY secret in"
-          echo "   Settings > Secrets and variables > Actions > Repository secrets"
-          exit 1
-        fi
-        echo "✓ NUGET_API_KEY secret is configured"
-      env:
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+    - name: NuGet.org login (OIDC -> temp API key)
+      # Trusted publishing (org standard; the long-lived NUGET_API_KEY secret is
+      # gone): this job's GitHub OIDC token is exchanged for a ~1-hour nuget.org
+      # API key, validated against the trusted publishing policy registered on
+      # nuget.org for this repository + workflow:
+      #   Repository Owner: DevelApp-ai
+      #   Repository:      CognitiveGraph
+      #   Workflow File:   ci.yml
+      #   Environment:     (none - this job uses no environment)
+      # NUGET_USER = the nuget.org profile name of the owning account (NOT an
+      # email address). The login runs close to the push (the temp key is
+      # short-lived). Fails loudly if the policy is not (yet) registered.
+      id: nuget-login
+      if: true
+      uses: NuGet/login@v1
+      with:
+        user: ${{ secrets.NUGET_USER }}
+
     
     - name: Check if version already exists on NuGet.org
       id: nuget-exists
@@ -588,5 +590,6 @@ jobs:
     
     - name: Publish to NuGet.org
       if: steps.nuget-exists.outputs.skip != 'true'
-      run: dotnet nuget push nupkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+      # Keyless trusted-publishing key from the login step above.
+      run: dotnet nuget push nupkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }} --skip-duplicate
     

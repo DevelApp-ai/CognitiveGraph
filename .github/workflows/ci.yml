@@ -2,6 +2,10 @@
 # across repos - concurrent sign jobs collide on the OTP session and fail
 # after ~4 min of retries (the 2026-11-12 batch-push incident). Trigger
 # signing repos one at a time and let each finish before the next.
+# 2026-11-13: retry after a lone 4-min SimplySign connect timeout at
+# 11:24Z (run 43416330743) ~7 min after RPCF signed successfully - Certum
+# appears to also need a cooldown between SEQUENTIAL sign jobs, not just
+# no overlap. Space retried sign jobs 15+ minutes apart.
 name: CI/CD Pipeline
 
 # Packages published from branch pushes are signed with Certum cloud code

@@ -6,6 +6,10 @@
 # 11:24Z (run 43416330743) ~7 min after RPCF signed successfully - Certum
 # appears to also need a cooldown between SEQUENTIAL sign jobs, not just
 # no overlap. Space retried sign jobs 15+ minutes apart.
+# 2026-11-13 12:25Z: attempt 3 - attempt 2 (11:44Z, run 43419446076) also
+# timed out solo at the connect step after ~4 min; MarkdownStructureChunker
+# signed fine at 12:13Z. Retrying after a >25 min quiet window (no sign jobs
+# anywhere in the org since 12:15Z).
 name: CI/CD Pipeline
 
 # Packages published from branch pushes are signed with Certum cloud code
@@ -224,7 +228,7 @@ jobs:
     - name: Connect to Certum SimplySign
       # Pinned by full commit SHA; proven by the LocalTaskhandler signing
       # test (run 43089090840, 2026-11-11) and shaztechio/bunyi-app #171.
-      # Never sees CERTUM_SIMPLYSIGN_PASSWORD — that secret stays dormant.
+      # Never sees CERTUM_SIMPLYSIGN_PASSWORD  that secret stays dormant.
       uses: dismine/windows-app-signing-setup-action@89ae3b032d4bc7a5b98d1a42a34e61ecb6faad64
       with:
         certum-username: ${{ secrets.CERTUM_SIMPLYSIGN_USERID }}
@@ -282,11 +286,11 @@ jobs:
         echo "Base ref: ${{ github.base_ref }}"
         
         if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
-          echo "✓ Publishing alpha version from develop branch"
+          echo " Publishing alpha version from develop branch"
         elif [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.base_ref }}" = "main" ]; then
-          echo "✓ Publishing beta version for pull request to main (PR #${{ github.event.number }})"
+          echo " Publishing beta version for pull request to main (PR #${{ github.event.number }})"
         else
-          echo "❌ ERROR: Invalid conditions for prerelease"
+          echo "L ERROR: Invalid conditions for prerelease"
           echo "Expected: develop branch OR pull request to main"
           exit 1
         fi
@@ -324,7 +328,7 @@ jobs:
     - name: Check GitHub Packages publish prerequisites
       run: |
         if [ -z "${GITHUB_TOKEN}" ]; then
-          echo "❌ ERROR: GITHUB_TOKEN is not available to this job."
+          echo "L ERROR: GITHUB_TOKEN is not available to this job."
           echo "GITHUB_TOKEN is automatically provided to Actions runs; check that"
           echo "the job is not overriding it with an unset secret."
           exit 1
@@ -334,7 +338,7 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           "https://api.github.com/user/packages?package_type=nuget" || echo "ERR")
         if [ "${STATUS}" != "200" ]; then
-          echo "❌ ERROR: GITHUB_TOKEN cannot access GitHub Packages (HTTP ${STATUS})."
+          echo "L ERROR: GITHUB_TOKEN cannot access GitHub Packages (HTTP ${STATUS})."
           echo ""
           cat /tmp/ghpkgcheck.json || true
           echo ""
@@ -346,7 +350,7 @@ jobs:
           echo "   'write:packages' scope and use it for the publish"
           exit 1
         fi
-        echo "✓ GITHUB_TOKEN has GitHub Packages access"
+        echo " GITHUB_TOKEN has GitHub Packages access"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
@@ -357,18 +361,18 @@ jobs:
         
         # Method 1: Using github.actor (recommended for organization repos)
         if dotnet nuget add source --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text --name github "https://nuget.pkg.github.com/DevelApp-ai/index.json" 2>/dev/null; then
-          echo "✓ NuGet source added successfully with github.actor"
+          echo " NuGet source added successfully with github.actor"
         else
-          echo "⚠ Failed to add NuGet source with github.actor, trying alternative..."
+          echo " Failed to add NuGet source with github.actor, trying alternative..."
           # Method 2: Using repository_owner as fallback
           dotnet nuget add source --username "${{ github.repository_owner }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text --name github "https://nuget.pkg.github.com/DevelApp-ai/index.json"
         fi
         
         # Attempt to push the package
         if dotnet nuget push nupkgs/*.nupkg --source "github" --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate; then
-          echo "✓ Package published successfully to GitHub Packages"
+          echo " Package published successfully to GitHub Packages"
         else
-          echo "❌ Failed to publish to GitHub Packages"
+          echo "L Failed to publish to GitHub Packages"
           echo "This might be due to:"
           echo "1. GITHUB_TOKEN lacks 'packages: write' permission"
           echo "2. Organization security settings blocking package publishing"
@@ -423,7 +427,7 @@ jobs:
           echo "nuGetVersionV2=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
           echo "semVer=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
         else
-          echo "❌ Fallback version should not run for non-main branch releases"
+          echo "L Fallback version should not run for non-main branch releases"
           exit 1
         fi
     
@@ -452,18 +456,18 @@ jobs:
         echo "Base ref: ${{ github.base_ref }}"
         
         if [ "${{ github.ref }}" != "refs/heads/main" ]; then
-          echo "❌ ERROR: Production release can only be created from main branch"
+          echo "L ERROR: Production release can only be created from main branch"
           echo "Current ref: ${{ github.ref }}"
           exit 1
         fi
         
         if [ "${{ github.event_name }}" != "push" ]; then
-          echo "❌ ERROR: Production release can only be created from direct push to main"
+          echo "L ERROR: Production release can only be created from direct push to main"
           echo "Current event: ${{ github.event_name }}"
           exit 1
         fi
         
-        echo "✓ Release conditions validated successfully"
+        echo " Release conditions validated successfully"
     
     # Publishing order per org decision DevelApp-ai/DevelApp-Repo-Global#73:
     # GitHub Packages first, GitHub Release second, NuGet.org last (stable
@@ -474,7 +478,7 @@ jobs:
     - name: Check GitHub Packages publish prerequisites
       run: |
         if [ -z "${GITHUB_TOKEN}" ]; then
-          echo "❌ ERROR: GITHUB_TOKEN is not available to this job."
+          echo "L ERROR: GITHUB_TOKEN is not available to this job."
           echo "GITHUB_TOKEN is automatically provided to Actions runs; check that"
           echo "the job is not overriding it with an unset secret."
           exit 1
@@ -484,7 +488,7 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           "https://api.github.com/user/packages?package_type=nuget" || echo "ERR")
         if [ "${STATUS}" != "200" ]; then
-          echo "❌ ERROR: GITHUB_TOKEN cannot access GitHub Packages (HTTP ${STATUS})."
+          echo "L ERROR: GITHUB_TOKEN cannot access GitHub Packages (HTTP ${STATUS})."
           echo ""
           cat /tmp/ghpkgcheck.json || true
           echo ""
@@ -496,7 +500,7 @@ jobs:
           echo "   'write:packages' scope and use it for the publish"
           exit 1
         fi
-        echo "✓ GITHUB_TOKEN has GitHub Packages access"
+        echo " GITHUB_TOKEN has GitHub Packages access"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
@@ -507,18 +511,18 @@ jobs:
         
         # Method 1: Using github.actor (recommended for organization repos)
         if dotnet nuget add source --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text --name github "https://nuget.pkg.github.com/DevelApp-ai/index.json" 2>/dev/null; then
-          echo "✓ NuGet source added successfully with github.actor"
+          echo " NuGet source added successfully with github.actor"
         else
-          echo "⚠ Failed to add NuGet source with github.actor, trying alternative..."
+          echo " Failed to add NuGet source with github.actor, trying alternative..."
           # Method 2: Using repository_owner as fallback
           dotnet nuget add source --username "${{ github.repository_owner }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text --name github "https://nuget.pkg.github.com/DevelApp-ai/index.json"
         fi
         
         # Attempt to push the package
         if dotnet nuget push nupkgs/*.nupkg --source "github" --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate; then
-          echo "✓ Package published successfully to GitHub Packages"
+          echo " Package published successfully to GitHub Packages"
         else
-          echo "❌ Failed to publish to GitHub Packages"
+          echo "L Failed to publish to GitHub Packages"
           echo "This might be due to:"
           echo "1. GITHUB_TOKEN lacks 'packages: write' permission"
           echo "2. Organization security settings blocking package publishing"

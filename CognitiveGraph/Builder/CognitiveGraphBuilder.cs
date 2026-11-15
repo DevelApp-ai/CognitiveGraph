@@ -364,19 +364,31 @@ public sealed class CognitiveGraphBuilder : IDisposable
     }
 
     /// <summary>
-    /// Builds the final graph buffer in memory
+    /// Builds the final graph buffer in memory. The source text is
+    /// UTF-8 encoded once and the graph is built from the bytes.
     /// </summary>
-    public CognitiveGraphBuffer Build(uint rootNodeOffset, string sourceText)
+    public CognitiveGraphBuffer Build(uint rootNodeOffset, string sourceText) =>
+        Build(rootNodeOffset, Encoding.UTF8.GetBytes(sourceText));
+
+    /// <summary>
+    /// Builds the final graph buffer in memory from UTF-8 encoded source
+    /// bytes. The bytes are appended verbatim — no decode/encode
+    /// round-trip — so a caller that already holds the source as UTF-8
+    /// (for example a UTF-8-native parser pipeline) pays zero
+    /// conversion. The buffer layout is identical to the string
+    /// overload: the source text length is the byte count.
+    /// </summary>
+    public CognitiveGraphBuffer Build(uint rootNodeOffset, ReadOnlyMemory<byte> sourceUtf8)
     {
         if (_options.Schema == SchemaVersion.V2)
         {
-            return BuildV2(rootNodeOffset, sourceText);
+            return BuildV2(rootNodeOffset, sourceUtf8);
         }
 
         // V1 implementation
-        // Write source text
+        // Write source bytes verbatim
         var sourceTextOffset = CurrentOffsetV1;
-        Append(Encoding.UTF8.GetBytes(sourceText));
+        Append(sourceUtf8.Span);
 
         // Write interval tree index
         var intervalTreeOffset = CurrentOffsetV1;
@@ -390,7 +402,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
             rootNodeOffset,
             (uint)_symbolNodeCount,  // Total symbol nodes written
             (uint)_cpgEdgeCount,     // Total CPG edges written
-            (uint)Encoding.UTF8.GetByteCount(sourceText),
+            (uint)sourceUtf8.Length,
             sourceTextOffset,
             intervalTreeOffset
         );
@@ -403,13 +415,15 @@ public sealed class CognitiveGraphBuilder : IDisposable
     }
 
     /// <summary>
-    /// Builds the final graph buffer in memory using V2 schema
+    /// Builds the final graph buffer in memory using V2 schema from
+    /// UTF-8 encoded source bytes (appended verbatim, byte count =
+    /// source text length).
     /// </summary>
-    private CognitiveGraphBuffer BuildV2(uint rootNodeOffset, string sourceText)
+    private CognitiveGraphBuffer BuildV2(uint rootNodeOffset, ReadOnlyMemory<byte> sourceUtf8)
     {
-        // Write source text
+        // Write source bytes verbatim
         var sourceTextOffsetV2 = CurrentOffsetV2;
-        Append(Encoding.UTF8.GetBytes(sourceText));
+        Append(sourceUtf8.Span);
 
         // Write interval tree index
         var intervalTreeOffsetV2 = CurrentOffsetV2;
@@ -423,7 +437,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
             rootNodeOffset,
             _symbolNodeCount, // Total symbol nodes written
             _cpgEdgeCount,    // Total CPG edges written
-            (ulong)Encoding.UTF8.GetByteCount(sourceText),
+            (ulong)sourceUtf8.Length,
             sourceTextOffsetV2,
             intervalTreeOffsetV2
         );
@@ -436,9 +450,21 @@ public sealed class CognitiveGraphBuilder : IDisposable
     }
 
     /// <summary>
-    /// Builds the final graph and writes directly to a file stream for large-scale persistence
+    /// Builds the final graph and writes directly to a file stream for
+    /// large-scale persistence. The source text is UTF-8 encoded once
+    /// and the graph is written from the bytes.
     /// </summary>
-    public void Build(FileStream stream, uint rootNodeOffset, string sourceText)
+    public void Build(FileStream stream, uint rootNodeOffset, string sourceText) =>
+        Build(stream, rootNodeOffset, Encoding.UTF8.GetBytes(sourceText));
+
+    /// <summary>
+    /// Builds the final graph from UTF-8 encoded source bytes and
+    /// writes it directly to a file stream for large-scale persistence.
+    /// The bytes are appended verbatim and the byte count is recorded
+    /// as the source text length; layout is identical to the string
+    /// overload.
+    /// </summary>
+    public void Build(FileStream stream, uint rootNodeOffset, ReadOnlyMemory<byte> sourceUtf8)
     {
         if (stream == null)
             throw new ArgumentNullException(nameof(stream));
@@ -447,14 +473,14 @@ public sealed class CognitiveGraphBuilder : IDisposable
 
         if (_options.Schema == SchemaVersion.V2)
         {
-            BuildV2ToStream(stream, rootNodeOffset, sourceText);
+            BuildV2ToStream(stream, rootNodeOffset, sourceUtf8);
             return;
         }
 
         // V1 implementation
-        // Write source text to buffer
+        // Write source bytes to buffer verbatim
         var sourceTextOffset = CurrentOffsetV1;
-        Append(Encoding.UTF8.GetBytes(sourceText));
+        Append(sourceUtf8.Span);
 
         // Write interval tree index to buffer
         var intervalTreeOffset = CurrentOffsetV1;
@@ -468,7 +494,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
             rootNodeOffset,
             (uint)_symbolNodeCount,  // Total symbol nodes written
             (uint)_cpgEdgeCount,     // Total CPG edges written
-            (uint)Encoding.UTF8.GetByteCount(sourceText),
+            (uint)sourceUtf8.Length,
             sourceTextOffset,
             intervalTreeOffset
         );
@@ -482,13 +508,14 @@ public sealed class CognitiveGraphBuilder : IDisposable
     }
 
     /// <summary>
-    /// Builds V2 graph and writes to file stream
+    /// Builds V2 graph from UTF-8 encoded source bytes and writes to
+    /// file stream.
     /// </summary>
-    private void BuildV2ToStream(FileStream stream, uint rootNodeOffset, string sourceText)
+    private void BuildV2ToStream(FileStream stream, uint rootNodeOffset, ReadOnlyMemory<byte> sourceUtf8)
     {
-        // Write source text
+        // Write source bytes verbatim
         var sourceTextOffsetV2 = CurrentOffsetV2;
-        Append(Encoding.UTF8.GetBytes(sourceText));
+        Append(sourceUtf8.Span);
 
         // Write interval tree index
         var intervalTreeOffsetV2 = CurrentOffsetV2;
@@ -502,7 +529,7 @@ public sealed class CognitiveGraphBuilder : IDisposable
             rootNodeOffset,
             _symbolNodeCount, // Total symbol nodes written
             _cpgEdgeCount,    // Total CPG edges written
-            (ulong)Encoding.UTF8.GetByteCount(sourceText),
+            (ulong)sourceUtf8.Length,
             sourceTextOffsetV2,
             intervalTreeOffsetV2
         );

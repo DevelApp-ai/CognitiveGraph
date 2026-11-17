@@ -1,0 +1,88 @@
+# Benchmark suite (issue #58): BenchmarkDotNet runs for the measurement
+# backlog (cross-repo index: DevelApp-ai/Research-article-builder#27).
+#
+# - pull_request: build the benchmark project + dry-job smoke run, so the
+#   suite cannot rot (acceptance criterion: "merged and running in CI or
+#   as a documented manual benchmark").
+# - workflow_dispatch / weekly schedule: short-job full run per OS,
+#   results uploaded as artifacts (commit them to benchmarks/results/ per
+#   the measurement-backlog ground rules when publishing numbers).
+name: Benchmarks
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'BenchmarkDotNet job preset (short|default|long)'
+        required: false
+        default: 'short'
+  schedule:
+    - cron: '0 3 * * 1'  # Mondays 03:00 UTC
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  smoke:
+    # Fast gate on every PR: does the suite build and run end-to-end?
+    name: Benchmark smoke (dry job)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Restore
+      run: dotnet restore CognitiveGraph.Benchmarks/CognitiveGraph.Benchmarks.csproj
+    - name: Build benchmarks
+      run: dotnet build CognitiveGraph.Benchmarks/CognitiveGraph.Benchmarks.csproj --no-restore -c Release
+    - name: Dry smoke run
+      run: >
+        echo "*" | dotnet run -c Release --no-build
+        --project CognitiveGraph.Benchmarks -- --job dry
+
+  benchmarks:
+    # Full short-job run per OS. Not on the PR path (it takes ~10+ min
+    # per OS); trigger manually or wait for the weekly schedule.
+    name: Full run (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    if: github.event_name != 'pull_request'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Restore
+      run: dotnet restore CognitiveGraph.Benchmarks/CognitiveGraph.Benchmarks.csproj
+    - name: Build benchmarks
+      run: dotnet build CognitiveGraph.Benchmarks/CognitiveGraph.Benchmarks.csproj --no-restore -c Release
+    - name: Run suite
+      run: >
+        echo "*" | dotnet run -c Release --no-build
+        --project CognitiveGraph.Benchmarks
+        -- --job ${{ github.event.inputs.job || 'short' }}
+    - name: Memory footprint (one process per row)
+      shell: bash
+      run: |
+        for size in 1000 10000 100000 1000000; do
+          dotnet run -c Release --no-build --project CognitiveGraph.Benchmarks -- --memory --mode graph --size $size || true
+          dotnet run -c Release --no-build --project CognitiveGraph.Benchmarks -- --memory --mode naive --size $size || true
+        done
+        for size in 100000 1000000; do
+          dotnet run -c Release --no-build --project CognitiveGraph.Benchmarks -- --memory --mode mmap --size $size || true
+          dotnet run -c Release --no-build --project CognitiveGraph.Benchmarks -- --memory --mode resident --size $size || true
+        done
+    - name: Upload results
+      uses: actions/upload-artifact@v6
+      with:
+        name: benchmark-results-${{ matrix.os }}
+        path: |
+          BenchmarkDotNet.Artifacts/results/*

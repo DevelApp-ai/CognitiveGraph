@@ -20,8 +20,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using CognitiveGraph.Accessors;
 using CognitiveGraph.Builder;
+using CognitiveGraph.Buffer;
 using CognitiveGraph.Schema;
 
 namespace CognitiveGraph;
@@ -148,6 +150,13 @@ public sealed class CognitiveGraphEditor : IDisposable
             return CloneOriginalGraph();
         }
 
+        // Fast path (issue #68): when every queued operation preserves the
+        // buffer layout, patch a single clone of the source buffer in place
+        // instead of re-emitting every node through a builder.
+        var patchedGraph = TryBuildInPlacePatch();
+        if (patchedGraph != null)
+            return patchedGraph;
+
         _operationsByOffset = _operations
             .GroupBy(op => op.TargetOffset)
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -160,10 +169,15 @@ public sealed class CognitiveGraphEditor : IDisposable
                 "The root node cannot be deleted: the resulting graph would be empty. Delete individual child nodes instead.");
 
         // Apply any insert operations that don't target existing nodes.
-        // Packed node offsets supplied by the caller refer to the source graph
-        // and are rebuilt (with their children and edges) into the new graph.
+        // _symbolNodeMap contains every source-graph node visited by the
+        // rebuild above, so a target offset absent from it is a stand-alone
+        // insert. (Checking _operationsByOffset is wrong: the insert's own
+        // TargetOffset is always present there, which silently dropped every
+        // stand-alone insert.) Packed node offsets supplied by the caller
+        // refer to the source graph and are rebuilt (with their children and
+        // edges) into the new graph.
         foreach (var insertOp in _operations.OfType<InsertNodeOperation>()
-                     .Where(op => !_operationsByOffset.ContainsKey(op.TargetOffset)))
+                     .Where(op => !_symbolNodeMap.ContainsKey(op.TargetOffset)))
         {
             var packedNodeOffsets = RebuildPackedNodeList(insertOp.PackedNodeOffsets);
             var newOffset = builder.WriteSymbolNode(
@@ -389,6 +403,277 @@ public sealed class CognitiveGraphEditor : IDisposable
             properties.Add((property.GetKey(), value.Type, boxed));
         }
         return properties;
+    }
+
+    /// <summary>
+    /// Fast path for layout-preserving edits (issue #68). Operations that do
+    /// not change the buffer layout — <see cref="ReplaceNodeOperation"/>
+    /// without packed-node/property overrides, <see cref="MoveNodeOperation"/>,
+    /// and <see cref="UpdatePropertyOperation"/> whose payload keeps its byte
+    /// length and type — are applied by cloning the source buffer once and
+    /// patching the fixed-size records in place. Every offset in the buffer is
+    /// preserved, so the cost is one buffer copy plus O(operations) instead of
+    /// a full node-by-node rebuild. When any patched node's source span
+    /// changes, the serialized interval tree (the last buffer section) is
+    /// rebuilt from the old tree's entries with the patched spans and
+    /// rewritten at its original offset — same node count, same serialized
+    /// size, no layout change. Returns <c>null</c> when any queued operation
+    /// cannot be applied in place; the caller falls back to the full rebuild,
+    /// which handles inserts, deletes, property adds/removes and type- or
+    /// length-changing updates.
+    /// </summary>
+    private CognitiveGraph? TryBuildInPlacePatch()
+    {
+        // 1) Eligibility check: refuse the fast path when any operation can
+        //    change the buffer's layout or node set.
+        foreach (var operation in _operations)
+        {
+            var patchable = operation switch
+            {
+                ReplaceNodeOperation r => r.NewPackedNodeOffsets == null && r.NewProperties == null,
+                MoveNodeOperation => true,
+                UpdatePropertyOperation u => !u.RemoveProperty,
+                _ => false
+            };
+            if (!patchable)
+                return null;
+        }
+
+        var sourceBuffer = _sourceGraph.GetBufferV1();
+        if (sourceBuffer == null)
+            return null;
+
+        var header = _sourceGraph.GetHeader();
+        if (header == null)
+            return null;
+        var treeOffset = header.Value.IntervalTreeOffset;
+
+        // 2) Copy-on-write: clone the source buffer once. This also
+        //    materializes any non-owned backing array into a writable one.
+        var copy = sourceBuffer.AsSpan().ToArray();
+        var span = (Span<byte>)copy;
+
+        // 3) Apply the patches in queue order.
+        // nodeOffset -> (new start, new length) for nodes whose span changed.
+        var spanChanges = new Dictionary<uint, (uint start, uint length)>();
+        foreach (var operation in _operations)
+        {
+            switch (operation)
+            {
+                case ReplaceNodeOperation replaceOp:
+                {
+                    if (!TryPatchNodeRecord(span, operation.TargetOffset,
+                            replaceOp.NewSymbolId, replaceOp.NewNodeType,
+                            replaceOp.NewSourceStart, replaceOp.NewSourceLength,
+                            out var oldStart, out var oldLength))
+                        return null;
+                    if (replaceOp.NewSourceStart != oldStart || replaceOp.NewSourceLength != oldLength)
+                        spanChanges[operation.TargetOffset] = (replaceOp.NewSourceStart, replaceOp.NewSourceLength);
+                    break;
+                }
+
+                case MoveNodeOperation moveOp:
+                {
+                    if (!TryPatchNodeRecord(span, operation.TargetOffset,
+                            null, null,
+                            moveOp.NewSourceStart, moveOp.NewSourceLength,
+                            out var oldStart, out var oldLength))
+                        return null;
+                    if (moveOp.NewSourceStart != oldStart || moveOp.NewSourceLength != oldLength)
+                        spanChanges[operation.TargetOffset] = (moveOp.NewSourceStart, moveOp.NewSourceLength);
+                    break;
+                }
+
+                case UpdatePropertyOperation updateOp:
+                {
+                    if (!TryPatchPropertyValue(sourceBuffer, span, operation.TargetOffset,
+                            updateOp.PropertyKey, updateOp.PropertyType, updateOp.PropertyValue))
+                        return null;
+                    break;
+                }
+            }
+        }
+
+        // 4) When any source span changed, rebuild the serialized interval
+        //    tree with the patched spans and rewrite it at its original offset.
+        if (spanChanges.Count > 0 && !TryRewriteIntervalTree(span, treeOffset, spanChanges))
+            return null;
+
+        return new CognitiveGraph(new CognitiveGraphBuffer(copy, takeOwnership: true));
+    }
+
+    /// <summary>
+    /// Patches a <see cref="Schema.SymbolNodeData"/> record in place. The
+    /// symbol id and node type are optional (patched only when supplied, so
+    /// <see cref="MoveNodeOperation"/> leaves them untouched). Returns the
+    /// node's pre-patch source span so callers can detect tree changes.
+    /// </summary>
+    private static bool TryPatchNodeRecord(Span<byte> span, uint nodeOffset,
+        ushort? newSymbolId, ushort? newNodeType,
+        uint newSourceStart, uint newSourceLength,
+        out uint oldSourceStart, out uint oldSourceLength)
+    {
+        oldSourceStart = 0;
+        oldSourceLength = 0;
+
+        if ((ulong)nodeOffset + SymbolNodeData.SIZE > (ulong)span.Length)
+            return false;
+
+        var record = span.Slice((int)nodeOffset, SymbolNodeData.SIZE);
+        oldSourceStart = MemoryMarshal.Read<uint>(record.Slice(4));
+        oldSourceLength = MemoryMarshal.Read<uint>(record.Slice(8));
+
+        if (newSymbolId.HasValue)
+        {
+            var symbolId = newSymbolId.GetValueOrDefault();
+            MemoryMarshal.Write(record.Slice(0), ref symbolId);
+        }
+        if (newNodeType.HasValue)
+        {
+            var nodeType = newNodeType.GetValueOrDefault();
+            MemoryMarshal.Write(record.Slice(2), ref nodeType);
+        }
+        MemoryMarshal.Write(record.Slice(4), ref newSourceStart);
+        MemoryMarshal.Write(record.Slice(8), ref newSourceLength);
+        return true;
+    }
+
+    /// <summary>
+    /// Patches an existing property value in place. Succeeds only when the
+    /// node has a property with the given key whose type matches and whose
+    /// new payload occupies exactly as many bytes as the old one; otherwise
+    /// the caller falls back to the full rebuild (which rewrites the layout
+    /// for adds, removes and length changes).
+    /// </summary>
+    private static bool TryPatchPropertyValue(CognitiveGraphBuffer sourceBuffer, Span<byte> span,
+        uint nodeOffset, string propertyKey, PropertyValueType propertyType, object propertyValue)
+    {
+        if ((ulong)nodeOffset + SymbolNodeData.SIZE > (ulong)span.Length)
+            return false;
+
+        var propertiesOffset = MemoryMarshal.Read<uint>(span.Slice((int)nodeOffset + 16));
+        if (propertiesOffset == 0)
+            return false; // No properties: adding one changes the layout
+
+        if ((ulong)propertiesOffset + sizeof(uint) > (ulong)span.Length)
+            return false;
+        var propertyCount = MemoryMarshal.Read<uint>(span.Slice((int)propertiesOffset));
+
+        // Properties layout: [uint count][PropertyData slots...]
+        var slotsOffset = propertiesOffset + sizeof(uint);
+        if ((ulong)slotsOffset + (ulong)propertyCount * PropertyData.SIZE > (ulong)span.Length)
+            return false;
+
+        for (uint i = 0; i < propertyCount; i++)
+        {
+            var slot = span.Slice((int)(slotsOffset + i * PropertyData.SIZE), PropertyData.SIZE);
+            var keyOffset = MemoryMarshal.Read<uint>(slot);
+            var valueOffset = MemoryMarshal.Read<uint>(slot.Slice(4));
+
+            if (!string.Equals(sourceBuffer.ReadString(keyOffset), propertyKey, StringComparison.Ordinal))
+                continue;
+
+            // Found the property: patch only when type matches and the payload
+            // length is unchanged.
+            if ((ulong)valueOffset + PropertyValueHeader.SIZE > (ulong)span.Length)
+                return false;
+            var headerSpan = span.Slice((int)valueOffset, PropertyValueHeader.SIZE);
+            var existingType = (PropertyValueType)MemoryMarshal.Read<ushort>(headerSpan);
+            var existingLength = MemoryMarshal.Read<uint>(headerSpan.Slice(4));
+            if (existingType != propertyType)
+                return false; // Type change rewrites the layout
+
+            Span<byte> payload;
+            try
+            {
+                payload = EncodePropertyValue(propertyType, propertyValue);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            if (payload.Length != existingLength)
+                return false; // Length change rewrites the layout
+
+            if ((ulong)valueOffset + PropertyValueHeader.SIZE + (ulong)payload.Length > (ulong)span.Length)
+                return false;
+            payload.CopyTo(span.Slice((int)(valueOffset + PropertyValueHeader.SIZE), payload.Length));
+            return true;
+        }
+
+        // Key not found: adding a property changes the layout
+        return false;
+    }
+
+    /// <summary>
+    /// Encodes a property value into its binary payload form, mirroring
+    /// <see cref="Builder.CognitiveGraphBuilder.WritePropertyValue"/>. All
+    /// fixed-size numeric types use the machine's native byte order, matching
+    /// the builder's <c>AppendStruct</c>-based writes.
+    /// </summary>
+    private static byte[] EncodePropertyValue(PropertyValueType type, object value) => type switch
+    {
+        PropertyValueType.String => Encoding.UTF8.GetBytes((string)value),
+        PropertyValueType.Int32 => BitConverter.GetBytes((int)value),
+        PropertyValueType.UInt32 => BitConverter.GetBytes((uint)value),
+        PropertyValueType.Boolean => new[] { (byte)((bool)value ? 1 : 0) },
+        PropertyValueType.Double => BitConverter.GetBytes((double)value),
+        PropertyValueType.Int64 => BitConverter.GetBytes((long)value),
+        PropertyValueType.UInt64 => BitConverter.GetBytes((ulong)value),
+        PropertyValueType.Float => BitConverter.GetBytes((float)value),
+        PropertyValueType.Binary => (byte[])value,
+        _ => throw new ArgumentException($"Unsupported property value type: {type}")
+    };
+
+    /// <summary>
+    /// Rewrites the serialized interval tree in place after span-changing
+    /// patches. The tree is the last buffer section, so its size is fixed by
+    /// the node count: the rebuilt serialization must occupy exactly the
+    /// space of the old one, which holds because the node set is unchanged.
+    /// </summary>
+    private static bool TryRewriteIntervalTree(Span<byte> span, uint treeOffset,
+        Dictionary<uint, (uint start, uint length)> spanChanges)
+    {
+        if ((ulong)treeOffset + sizeof(uint) > (ulong)span.Length)
+            return false;
+        var nodeCount = MemoryMarshal.Read<uint>(span.Slice((int)treeOffset));
+
+        // Serialized layout: [uint count][IntervalNode records...]
+        if ((ulong)treeOffset + sizeof(uint) + (ulong)nodeCount * IntervalNode.SIZE > (ulong)span.Length)
+            return false;
+
+        var tree = new IntervalTree();
+        var recordsOffset = treeOffset + sizeof(uint);
+        try
+        {
+            for (uint i = 0; i < nodeCount; i++)
+            {
+                var record = span.Slice((int)(recordsOffset + i * IntervalNode.SIZE), IntervalNode.SIZE);
+                var start = MemoryMarshal.Read<uint>(record);
+                var end = MemoryMarshal.Read<uint>(record.Slice(4));
+                var nodeOffset = MemoryMarshal.Read<uint>(record.Slice(8));
+
+                if (spanChanges.TryGetValue(nodeOffset, out var patched))
+                {
+                    // The builder stores inclusive end offsets: (start, start + length - 1)
+                    start = patched.start;
+                    end = patched.start + patched.length - 1;
+                }
+
+                tree.Add(start, end, nodeOffset);
+            }
+        }
+        catch (ArgumentException)
+        {
+            return false; // Degenerate span (e.g. zero length): let the rebuild report it
+        }
+
+        var serialized = tree.Serialize();
+        if (serialized.Length != sizeof(uint) + nodeCount * IntervalNode.SIZE)
+            return false; // Same node count must serialize to the same size
+
+        serialized.CopyTo(span.Slice((int)treeOffset, serialized.Length));
+        return true;
     }
 
     /// <summary>

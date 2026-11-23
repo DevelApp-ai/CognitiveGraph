@@ -19,6 +19,7 @@ zero-copy-ast-manipulation article promises.
 | `SustainedEditBenchmarks` | 4 | Bytes allocated per edit + Gen0/1/2 collections over 100-edit sustained loops |
 | `MemoryFootprintRunner` | 5 | Working set / bytes per node across 1K-1M nodes (O(n) check), mmap vs resident copy |
 | `LoadBenchmarks` | 6 | mmap load vs resident copy (100K-node file), incl. lazy open-only load |
+| `SchemaCrossoverRunner` | #70 | V1 (Compact) vs V2 (Universal) schema selection: build time, bytes/node, traversal speed, in-memory vs file-backed, semantic checksum (issue-70 measurement docs live in `docs/measurements/issue-70/`) |
 
 ## Running
 
@@ -46,6 +47,15 @@ dotnet run -c Release --project CognitiveGraph.Benchmarks -- --memory --mode gra
 dotnet run -c Release --project CognitiveGraph.Benchmarks -- --memory --mode naive --size 1000
 dotnet run -c Release --project CognitiveGraph.Benchmarks -- --memory --mode mmap --size 1000000
 dotnet run -c Release --project CognitiveGraph.Benchmarks -- --memory --mode resident --size 1000000
+```
+
+The schema-crossover runner (issue #70) also runs one scale per fresh
+process, accumulating rows into `<outdir>/results.json` keyed by
+(Mode, Nodes):
+
+```bash
+dotnet run -c Release --project CognitiveGraph.Benchmarks -- \
+  --schema-crossover --scale 1000000 --reps 3 --outdir docs/measurements/issue-70
 ```
 
 ## Protocol notes (interpretation of the issue's terms)

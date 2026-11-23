@@ -119,6 +119,28 @@ The implementation maintains 100% backward compatibility with existing V1 graphs
 ### Default to V1 (Updated)
 To maintain backward compatibility, `GraphBuilderOptions` defaults to `SchemaVersion.V1`. Users can explicitly choose V2 via `GraphBuilderOptions.Universal()` when maximum scalability is needed.
 
+### Version Selection Rule (measured, issue #70)
+There is no automatic schema selection in the package: the caller chooses
+(the default is V1), the loader detects the version from the file/buffer
+preamble, and V1 has a hard structural ceiling of `int.MaxValue` bytes
+(32-bit offsets). The measured selection rule backing that default
+(full data and protocol: `docs/measurements/issue-70/`):
+
+- **Per-file graphs (KB to low MB): use V1.** It is the smaller layout
+  (measured 104 B/node vs 146 B/node on the benchmark tree, -29%) with
+  identical build time, and full-tree traversal stays in the
+  milliseconds-to-tens-of-milliseconds range even at a million nodes.
+- **Single graphs approaching 2 GiB (whole-repo merged graphs, persisted
+  files > 2 GiB): use V2**, accepting +40% bytes in exchange for
+  2.6-2.8x faster traversal via the memory-mapped unsafe accessors.
+- **V2 reads require the file-backed buffer**: `SymbolNode64` /
+  `GetNodeAtV2` need the `UniversalGraphBuffer` (mmap); in-memory V2
+  builds support statistics but not the V2 accessors today.
+- A future automatic selector should key on estimated final buffer size
+  (live builder offset), switching to V2 near the 2 GiB boundary; no
+  lines/files-based threshold exists or is warranted (per-file graphs
+  are 3-5 orders of magnitude below the ceiling).
+
 ### Separate Accessor Types
 Rather than using a unified accessor with runtime version checks (which would harm performance), the implementation provides separate accessor types (`SymbolNode` vs `SymbolNode64`). This ensures optimal performance by avoiding branch misprediction.
 

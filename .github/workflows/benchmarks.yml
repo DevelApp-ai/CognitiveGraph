@@ -45,6 +45,14 @@ jobs:
       run: >
         echo "*" | dotnet run -c Release --no-build
         --project CognitiveGraph.Benchmarks -- --job dry
+    - name: Schema-crossover smoke (issue #70)
+      # Exercises the SchemaCrossoverRunner code paths (V1/V2, in-memory
+      # and file-backed) at a tiny scale; the committed measurement lives
+      # in docs/measurements/issue-70/.
+      run: >
+        dotnet run -c Release --no-build
+        --project CognitiveGraph.Benchmarks -- --schema-crossover
+        --scale 1000 --reps 1
 
   benchmarks:
     # Full short-job run per OS. Not on the PR path (it takes ~10+ min

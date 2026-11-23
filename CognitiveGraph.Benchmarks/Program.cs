@@ -42,6 +42,16 @@ public static class Program
             return;
         }
 
+        //   --schema-crossover [--scales CSV --reps N --outdir DIR]
+        //      Issue #70: V1 (Compact) vs V2 (Universal) schema selection
+        //      across scales, in-memory and file-backed (see
+        //      benchmarks/README.md and docs/measurements/issue-70/).
+        if (args.Length > 0 && args[0] == "--schema-crossover")
+        {
+            SchemaCrossoverRunner.Run(args.Skip(1).ToArray());
+            return;
+        }
+
         // Default: run the BenchmarkDotNet suite. Job selection is done from
         // the command line (e.g. `--job short`); see benchmarks/README.md.
         var config = ManualConfig.Create(DefaultConfig.Instance)

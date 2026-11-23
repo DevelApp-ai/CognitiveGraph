@@ -1,0 +1,178 @@
+[
+  {
+    "Mode": "v1-mem",
+    "Nodes": 1000,
+    "Reps": 3,
+    "BuildMs": 1.0409,
+    "TraverseMs": 0.3177,
+    "Bytes": 104046,
+    "BuildAllocMB": 0.5659866333007812,
+    "Checksum": 4746144,
+    "Notes": "in-memory V1 buffer (default GraphBuilderOptions); build = tree construction \u002B final buffer; GetNodeAt traversal"
+  },
+  {
+    "Mode": "v1-mmap",
+    "Nodes": 1000,
+    "Reps": 3,
+    "BuildMs": 4.0946,
+    "TraverseMs": 0.1773,
+    "Bytes": 104046,
+    "BuildAllocMB": 0.4674224853515625,
+    "Checksum": 4746144,
+    "Notes": "V1 persisted, loaded via memory-mapped constructor; build = tree construction \u002B file I/O; GetNodeAt traversal"
+  },
+  {
+    "Mode": "v2-mem",
+    "Nodes": 1000,
+    "Reps": 3,
+    "BuildMs": 1.048,
+    "TraverseMs": null,
+    "Bytes": 146078,
+    "BuildAllocMB": 0.8502349853515625,
+    "Checksum": 0,
+    "Notes": "in-memory V2 layout; full V2 accessors need the file-backed buffer; GetStatistics() works"
+  },
+  {
+    "Mode": "v2-mmap",
+    "Nodes": 1000,
+    "Reps": 3,
+    "BuildMs": 1.6991,
+    "TraverseMs": 0.1397,
+    "Bytes": 146078,
+    "BuildAllocMB": 0.7115859985351562,
+    "Checksum": 4746144,
+    "Notes": "V2 persisted, loaded via memory-mapped constructor; build = tree construction \u002B file I/O; GetNodeAtV2 traversal"
+  },
+  {
+    "Mode": "v1-mem",
+    "Nodes": 10000,
+    "Reps": 3,
+    "BuildMs": 11.6369,
+    "TraverseMs": 0.8645,
+    "Bytes": 1040046,
+    "BuildAllocMB": 5.792823791503906,
+    "Checksum": 452487360,
+    "Notes": "in-memory V1 buffer (default GraphBuilderOptions); build = tree construction \u002B final buffer; GetNodeAt traversal"
+  },
+  {
+    "Mode": "v1-mmap",
+    "Nodes": 10000,
+    "Reps": 3,
+    "BuildMs": 10.9621,
+    "TraverseMs": 0.8445,
+    "Bytes": 1040046,
+    "BuildAllocMB": 4.8016204833984375,
+    "Checksum": 452487360,
+    "Notes": "V1 persisted, loaded via memory-mapped constructor; build = tree construction \u002B file I/O; GetNodeAt traversal"
+  },
+  {
+    "Mode": "v2-mem",
+    "Nodes": 10000,
+    "Reps": 3,
+    "BuildMs": 9.513,
+    "TraverseMs": null,
+    "Bytes": 1460078,
+    "BuildAllocMB": 8.63482666015625,
+    "Checksum": 0,
+    "Notes": "in-memory V2 layout; full V2 accessors need the file-backed buffer; GetStatistics() works"
+  },
+  {
+    "Mode": "v2-mmap",
+    "Nodes": 10000,
+    "Reps": 3,
+    "BuildMs": 10.273,
+    "TraverseMs": 0.3253,
+    "Bytes": 1460078,
+    "BuildAllocMB": 7.243049621582031,
+    "Checksum": 452487360,
+    "Notes": "V2 persisted, loaded via memory-mapped constructor; build = tree construction \u002B file I/O; GetNodeAtV2 traversal"
+  },
+  {
+    "Mode": "v1-mem",
+    "Nodes": 100000,
+    "Reps": 3,
+    "BuildMs": 92.1704,
+    "TraverseMs": 8.2794,
+    "Bytes": 10400046,
+    "BuildAllocMB": 57.16972351074219,
+    "Checksum": 45025171840,
+    "Notes": "in-memory V1 buffer (default GraphBuilderOptions); build = tree construction \u002B final buffer; GetNodeAt traversal"
+  },
+  {
+    "Mode": "v1-mmap",
+    "Nodes": 100000,
+    "Reps": 3,
+    "BuildMs": 104.5174,
+    "TraverseMs": 8.0621,
+    "Bytes": 10400046,
+    "BuildAllocMB": 47.25212860107422,
+    "Checksum": 45025171840,
+    "Notes": "V1 persisted, loaded via memory-mapped constructor; build = tree construction \u002B file I/O; GetNodeAt traversal"
+  },
+  {
+    "Mode": "v2-mem",
+    "Nodes": 100000,
+    "Reps": 3,
+    "BuildMs": 98.0685,
+    "TraverseMs": null,
+    "Bytes": 14600078,
+    "BuildAllocMB": 85.58927154541016,
+    "Checksum": 0,
+    "Notes": "in-memory V2 layout; full V2 accessors need the file-backed buffer; GetStatistics() works"
+  },
+  {
+    "Mode": "v2-mmap",
+    "Nodes": 100000,
+    "Reps": 3,
+    "BuildMs": 109.2573,
+    "TraverseMs": 2.7448,
+    "Bytes": 14600078,
+    "BuildAllocMB": 71.66621398925781,
+    "Checksum": 45025171840,
+    "Notes": "V2 persisted, loaded via memory-mapped constructor; build = tree construction \u002B file I/O; GetNodeAtV2 traversal"
+  },
+  {
+    "Mode": "v1-mem",
+    "Nodes": 1000000,
+    "Reps": 3,
+    "BuildMs": 919.8067,
+    "TraverseMs": 77.9032,
+    "Bytes": 104000046,
+    "BuildAllocMB": 565.688102722168,
+    "Checksum": 4500251985664,
+    "Notes": "in-memory V1 buffer (default GraphBuilderOptions); build = tree construction \u002B final buffer; GetNodeAt traversal"
+  },
+  {
+    "Mode": "v1-mmap",
+    "Nodes": 1000000,
+    "Reps": 3,
+    "BuildMs": 793.5323,
+    "TraverseMs": 83.3887,
+    "Bytes": 104000046,
+    "BuildAllocMB": 466.506591796875,
+    "Checksum": 4500251985664,
+    "Notes": "V1 persisted, loaded via memory-mapped constructor; build = tree construction \u002B file I/O; GetNodeAt traversal"
+  },
+  {
+    "Mode": "v2-mem",
+    "Nodes": 1000000,
+    "Reps": 3,
+    "BuildMs": 993.3194,
+    "TraverseMs": null,
+    "Bytes": 146000078,
+    "BuildAllocMB": 849.8831024169922,
+    "Checksum": 0,
+    "Notes": "in-memory V2 layout; full V2 accessors need the file-backed buffer; GetStatistics() works"
+  },
+  {
+    "Mode": "v2-mmap",
+    "Nodes": 1000000,
+    "Reps": 3,
+    "BuildMs": 1050.175,
+    "TraverseMs": 29.723,
+    "Bytes": 146000078,
+    "BuildAllocMB": 710.6478805541992,
+    "Checksum": 4500251985664,
+    "Notes": "V2 persisted, loaded via memory-mapped constructor; build = tree construction \u002B file I/O; GetNodeAtV2 traversal"
+  }
+]

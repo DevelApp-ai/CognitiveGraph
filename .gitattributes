@@ -1,0 +1,8 @@
+# The issue-55 OSS defect corpus is content-addressed: each committed
+# snapshot must hash to the git blob SHA and byte count recorded in
+# docs/measurements/issue-55/corpus/manifest.json. Git must therefore never
+# perform line-ending normalization (LF <-> CRLF) on these files, otherwise
+# the byte-fidelity gate (Pipeline.Validate / CorpusIntegrityTests) fails on
+# platforms where checkout normalization applies (windows-latest runners
+# default to core.autocrlf=true).
+docs/measurements/issue-55/corpus/files/** -text

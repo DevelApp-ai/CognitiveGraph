@@ -1,0 +1,870 @@
+{
+  "schema": 1,
+  "issue": "DevelApp-ai/CognitiveGraph#55",
+  "classifierVersion": "3",
+  "maxSnapshotBytes": 262144,
+  "entries": [
+    {
+      "id": "8b3c75ad711931598180c035806c72288d5fe3cf17d52f0b9317a6a52b8a1353",
+      "project": "AngleSharp/AngleSharp",
+      "license": "MIT",
+      "fixSha": "74c7a4a443aa6257a9339b439471814e9123e894",
+      "preFixSha": "9c1af1cb87fdabee1a2ea1342e0533139dcd22b4",
+      "path": "src/AngleSharp/Browser/DefaultNavigationHandler.cs",
+      "category": "Nullability",
+      "signals": {
+        "is-null": 2
+      },
+      "preFixRanges": [
+        [
+          8,
+          35
+        ]
+      ],
+      "postFixRanges": [
+        [
+          8,
+          31
+        ]
+      ],
+      "message": "Fixed handling of null content",
+      "date": "2024-03-07T09:35:40Z",
+      "snapshot": "files/AngleSharp/AngleSharp/74c7a4a4/DefaultNavigationHandler.cs",
+      "bytes": 1476,
+      "gitBlobSha": "f406a7a87665a1288b0cfb92f48d5ec7d9794794"
+    },
+    {
+      "id": "e79b82e0549337652c0f721532093a7f0944e989ea01201614fd002e3792eb63",
+      "project": "DapperLib/Dapper",
+      "license": "Apache-2.0",
+      "fixSha": "2789188e870f27687c741d9779968d324e07eaaf",
+      "preFixSha": "a00716926c10eccfd8c02bc3ce810c65430a8e41",
+      "path": "Dapper/SqlMapper.cs",
+      "category": "Nullability",
+      "signals": {
+        "is-null": 2
+      },
+      "preFixRanges": [
+        [
+          1881,
+          1891
+        ]
+      ],
+      "postFixRanges": [
+        [
+          1881,
+          1893
+        ]
+      ],
+      "message": "This fixes a couple of issues where GetCacheInfo is called with null exampleParameters for an Identity that has non-null parameters. For example, deferred GridReader and async MultiMap calls do an initial call with non-null example parameters, and then do a second call with null example parameters. ",
+      "date": "2026-11-20T11:08:26Z",
+      "snapshot": "files/DapperLib/Dapper/2789188e/SqlMapper.cs",
+      "bytes": 223208,
+      "gitBlobSha": "db0b21b7ebb35442559cc057a41dd4f39b6a8ea2"
+    },
+    {
+      "id": "1e3752728daa12ee047af4f13c5157ad83c71405fd16f36658189173517622e0",
+      "project": "DapperLib/Dapper",
+      "license": "Apache-2.0",
+      "fixSha": "2c81a4085a6d3d25f5eaa32f904086f9add1d5cf",
+      "preFixSha": "0e04fe1daf71652c4bdfb1dc57178bcf39668050",
+      "path": "Dapper/SqlMapper.cs",
+      "category": "Nullability",
+      "signals": {
+        "null-check": 2,
+        "null-coalescing": 1,
+        "null-conditional": 1
+      },
+      "preFixRanges": [
+        [
+          2362,
+          2368
+        ],
+        [
+          3078,
+          3084
+        ],
+        [
+          3163,
+          3168
+        ]
+      ],
+      "postFixRanges": [
+        [
+          2362,
+          2370
+        ],
+        [
+          3080,
+          3087
+        ],
+        [
+          3166,
+          3178
+        ]
+      ],
+      "message": "Fix handling of selecting nullable value tuples (#1400)\n\n\u0060SingleOrDefault\u003C(int, int)?\u003E(query)\u0060 always returned null because the IsValueTuple did not handle nullable types and thus the \u0060GenerateValueTupleDeserializer\u0060 method was never called.\r\n\r\nI\u0027ve added test for the case when the query does not re",
+      "date": "2020-05-01T22:16:23Z",
+      "snapshot": "files/DapperLib/Dapper/2c81a408/SqlMapper.cs",
+      "bytes": 193591,
+      "gitBlobSha": "5289ca7f1827a9a7f218d2138c15ebe5439a397c"
+    },
+    {
+      "id": "5cbdc2b720e812d660521f1e92d0613710ce5ece404721b4e16a48ca9b4421ab",
+      "project": "JamesNK/Newtonsoft.Json",
+      "license": "MIT",
+      "fixSha": "57025815e564d36821acf778e2c00d02225aab35",
+      "preFixSha": "c908de3017ee32278c5330f715cef0e9733ce9db",
+      "path": "Src/Newtonsoft.Json/Linq/JTokenWriter.cs",
+      "category": "Nullability",
+      "signals": {
+        "default-null": 1,
+        "null-check": 1
+      },
+      "preFixRanges": [
+        [
+          281,
+          286
+        ]
+      ],
+      "postFixRanges": [
+        [
+          281,
+          292
+        ]
+      ],
+      "message": "Fix: Null String being reported as String rather than JTokenType.Null (#2796)\n\nFixes https://github.com/JamesNK/Newtonsoft.Json/issues/2775",
+      "date": "2023-01-16T09:08:14Z",
+      "snapshot": "files/JamesNK/Newtonsoft.Json/57025815/JTokenWriter.cs",
+      "bytes": 17864,
+      "gitBlobSha": "618063e240c0458b26aaece5fe5405e9e36b4459"
+    },
+    {
+      "id": "4f7037103817f6de751026cb3825432519356b1e3d25ec5e4e79111b3f05f553",
+      "project": "NLog/NLog",
+      "license": "BSD-3-Clause",
+      "fixSha": "01b8397b8fd82ff509f9c16fe1ffb98ccd4a0c63",
+      "preFixSha": "7ae091e0d46a77dff2ab034e1f30e8a7ea3e19f7",
+      "path": "src/NLog/Config/AssemblyExtensionLoader.cs",
+      "category": "Nullability",
+      "signals": {
+        "is-null-or-empty": 5,
+        "null-conditional": 5
+      },
+      "preFixRanges": [
+        [
+          106,
+          112
+        ],
+        [
+          124,
+          145
+        ],
+        [
+          153,
+          195
+        ]
+      ],
+      "postFixRanges": [
+        [
+          106,
+          112
+        ],
+        [
+          124,
+          145
+        ],
+        [
+          153,
+          192
+        ]
+      ],
+      "message": "ConfigurationItemFactory - Fix NullReferenceException when skipping already loaded assembly (#5276)",
+      "date": "2023-07-04T17:36:49Z",
+      "snapshot": "files/NLog/NLog/01b8397b/AssemblyExtensionLoader.cs",
+      "bytes": 22918,
+      "gitBlobSha": "670b124e1699b75702f9c4b51e11bb9622e73996"
+    },
+    {
+      "id": "3b45a197f9d8221ff128fbd6aa090c43070f31fd8b2345ae4869245c3048edee",
+      "project": "icsharpcode/SharpZipLib",
+      "license": "MIT",
+      "fixSha": "8ab21b0a4df1081608a44065cdbc10f96e2b6c8a",
+      "preFixSha": "1493f69a3328929f3d845898a3321ff042a49ab2",
+      "path": "src/ICSharpCode.SharpZipLib/Core/PathUtils.cs",
+      "category": "ArrayBounds",
+      "signals": {
+        "length-guard": 3
+      },
+      "preFixRanges": [
+        [
+          1,
+          4
+        ],
+        [
+          12,
+          62
+        ]
+      ],
+      "postFixRanges": [
+        [
+          1,
+          6
+        ],
+        [
+          14,
+          34
+        ]
+      ],
+      "message": "PR #593: Simplify DropPathRoot and fix out of bounds issue\n\n* Simplify DropPathRoot and fix out of bounds issue\r\n\r\n* prevent throwing in DropPathRoot and add tests\r\n\r\n* make path tests platform-specific\r\n\r\ntesting for UNC paths on *nix does not really make sense\r\n\r\n* handle .NET \u003C 4.6.2 special case",
+      "date": "2021-04-27T19:13:30Z",
+      "snapshot": "files/icsharpcode/SharpZipLib/8ab21b0a/PathUtils.cs",
+      "bytes": 2168,
+      "gitBlobSha": "2d61217866f5a1eb7e2f540f624090084d3ca5d3"
+    },
+    {
+      "id": "32f0d764a109cdf2eddeebd4c08ddd07698a162b627ce340f62f14a5fd4d4139",
+      "project": "mbdavid/LiteDB",
+      "license": "MIT",
+      "fixSha": "037cc96ff5c061ca5200af5d8e7591c0e8f08388",
+      "preFixSha": "42cc1be3c585ff42269859305f24d9ab766c5c22",
+      "path": "LiteDB/Document/BsonValue.cs",
+      "category": "Nullability",
+      "signals": {
+        "null-coalescing": 1,
+        "null-conditional": 1
+      },
+      "preFixRanges": [
+        [
+          558,
+          564
+        ]
+      ],
+      "postFixRanges": [
+        [
+          558,
+          564
+        ]
+      ],
+      "message": "Fix NullReferenceException in BsonValue.GetHashCode() for BsonValue.Null",
+      "date": "2020-03-27T16:34:44Z",
+      "snapshot": "files/mbdavid/LiteDB/037cc96f/BsonValue.cs",
+      "bytes": 20294,
+      "gitBlobSha": "d8319c2757fdc598fc532174d342cbb1f77339bc"
+    },
+    {
+      "id": "7c7ade52cd41f615903e509f3e14e1a36ce93981440753ac66778d4426421afb",
+      "project": "mbdavid/LiteDB",
+      "license": "MIT",
+      "fixSha": "101f92071bae4b024caba0a9491b765762e440c7",
+      "preFixSha": "0ca9ae8c637dd911daffcb1da395666a1035073f",
+      "path": "LiteDB/Client/Structures/Query.cs",
+      "category": "Nullability",
+      "signals": {
+        "null-coalescing": 8
+      },
+      "preFixRanges": [
+        [
+          52,
+          58
+        ],
+        [
+          62,
+          68
+        ],
+        [
+          72,
+          78
+        ],
+        [
+          82,
+          88
+        ],
+        [
+          93,
+          99
+        ],
+        [
+          103,
+          109
+        ],
+        [
+          135,
+          141
+        ]
+      ],
+      "postFixRanges": [
+        [
+          52,
+          58
+        ],
+        [
+          62,
+          68
+        ],
+        [
+          72,
+          78
+        ],
+        [
+          82,
+          88
+        ],
+        [
+          93,
+          99
+        ],
+        [
+          103,
+          109
+        ],
+        [
+          135,
+          141
+        ]
+      ],
+      "message": "Fix null value in Query static methods #1521",
+      "date": "2020-03-02T14:05:00Z",
+      "snapshot": "files/mbdavid/LiteDB/101f9207/Query.cs",
+      "bytes": 8019,
+      "gitBlobSha": "a3df0da4e24900931fc63fcc7dbe74af5ae49dbf"
+    },
+    {
+      "id": "008b419ea9aa76f1bc7093b8f98ee6a27f5b00982d6f0db2be287ae5c629d230",
+      "project": "mbdavid/LiteDB",
+      "license": "MIT",
+      "fixSha": "68cf0dfb3774b3d99f2019046365c0c06b665552",
+      "preFixSha": "9c7ff75afcba43ce01db11c5c5f52da0426021bc",
+      "path": "LiteDB/Engine/Engine/Rebuild.cs",
+      "category": "Nullability",
+      "signals": {
+        "default-null": 1,
+        "null-check": 1
+      },
+      "preFixRanges": [
+        [
+          20,
+          25
+        ]
+      ],
+      "postFixRanges": [
+        [
+          20,
+          28
+        ]
+      ],
+      "message": "fix: SQL REBUILD without options threw NullReferenceException\n\nThe SQL parser passes null options to the engine when REBUILD has no options\ndocument. RebuildService dereferenced them after the engine had already been\nclosed, so the statement failed and left the database unusable.\n\nTreat null options",
+      "date": "2026-09-17T23:51:59Z",
+      "snapshot": "files/mbdavid/LiteDB/68cf0dfb/Rebuild.cs",
+      "bytes": 4148,
+      "gitBlobSha": "b85fe6f6f1d84ae518c04618e205ee19e734ab43"
+    },
+    {
+      "id": "ae7f8947c84882a5b1a2d507a1d40be99942bfde9f7bd13457e4f17cf9d2c606",
+      "project": "mbdavid/LiteDB",
+      "license": "MIT",
+      "fixSha": "85ee01b2f3cd475a98d9deaa2ecc007acf7872da",
+      "preFixSha": "7accc50f51a0911b62abb3395d03cdcba76bc445",
+      "path": "LiteDB/Engine/Services/WalIndexService.cs",
+      "category": "ArrayBounds",
+      "signals": {
+        "count-guard": 1,
+        "index-check": 1
+      },
+      "preFixRanges": [
+        [
+          17,
+          23
+        ],
+        [
+          49,
+          66
+        ],
+        [
+          83,
+          120
+        ],
+        [
+          123,
+          138
+        ],
+        [
+          141,
+          146
+        ]
+      ],
+      "postFixRanges": [
+        [
+          17,
+          24
+        ],
+        [
+          50,
+          76
+        ],
+        [
+          93,
+          140
+        ],
+        [
+          143,
+          164
+        ],
+        [
+          167,
+          176
+        ]
+      ],
+      "message": "Fix wal index concurrency #1429",
+      "date": "2020-02-04T19:31:23Z",
+      "snapshot": "files/mbdavid/LiteDB/85ee01b2/WalIndexService.cs",
+      "bytes": 9634,
+      "gitBlobSha": "c93ec133439edbe56be049260fb201c341eb3cf6"
+    },
+    {
+      "id": "fc5a43fc98c56d1b02c2c7b10a522839737fcf74eefd4aa72176155ed31a3f09",
+      "project": "mbdavid/LiteDB",
+      "license": "MIT",
+      "fixSha": "aab8993dad45812a3551ff315901e29ae09ac6fb",
+      "preFixSha": "1ac9d12ab6afaf579d8c758b98b5e827287781f5",
+      "path": "LiteDB/Client/Database/Collections/Aggregate.cs",
+      "category": "Nullability",
+      "signals": {
+        "default-null": 4,
+        "null-check": 4
+      },
+      "preFixRanges": [
+        [
+          139,
+          145
+        ],
+        [
+          161,
+          166
+        ],
+        [
+          175,
+          181
+        ],
+        [
+          197,
+          202
+        ]
+      ],
+      "postFixRanges": [
+        [
+          139,
+          148
+        ],
+        [
+          164,
+          172
+        ],
+        [
+          181,
+          190
+        ],
+        [
+          206,
+          214
+        ]
+      ],
+      "message": "fix: Min/Max return Null/default on empty collection instead of throwing (#1986)\n\nThe aggregate pipeline in Min/Max(BsonExpression) ended with .First(), which\nthrows InvalidOperationException (\u0022Sequence contains no elements\u0022) when the\ncollection (or filtered result) is empty. Use .FirstOrDefault() a",
+      "date": "2026-06-10T18:28:54Z",
+      "snapshot": "files/mbdavid/LiteDB/aab8993d/Aggregate.cs",
+      "bytes": 7289,
+      "gitBlobSha": "b571348a633ede588e7dffcdb3bca5e740b05efc"
+    },
+    {
+      "id": "0b8f40a5ba2d8c88ebd864de8acb1e0e0aaad85c76da8feab1963fb7df8f34ad",
+      "project": "mbdavid/LiteDB",
+      "license": "MIT",
+      "fixSha": "af491a65b58636b753d30876fc6392517b4c4f13",
+      "preFixSha": "e9e89bdcafcb46123812adfa960388e5b102481c",
+      "path": "LiteDB/Engine/Engine/Update.cs",
+      "category": "Nullability",
+      "signals": {
+        "default-null": 1,
+        "null-check": 1
+      },
+      "preFixRanges": [
+        [
+          18,
+          35
+        ]
+      ],
+      "postFixRanges": [
+        [
+          18,
+          37
+        ]
+      ],
+      "message": "Fix NRE in update #1451",
+      "date": "2020-02-07T20:53:32Z",
+      "snapshot": "files/mbdavid/LiteDB/af491a65/Update.cs",
+      "bytes": 6396,
+      "gitBlobSha": "fda2ecc4391caff31f5c94763857e0a4c7c81d56"
+    },
+    {
+      "id": "b342b3f2eda10b7998bacc139a51005f0e32a8992a2fdaaa2f650c90133150da",
+      "project": "mbdavid/LiteDB",
+      "license": "MIT",
+      "fixSha": "b37ae336bf583c7a12fe0a9feabaca7eb36e895d",
+      "preFixSha": "419edd1e06564c15ebb176a160aa4bb659a1c955",
+      "path": "LiteDB/Client/Database/Collections/Index.cs",
+      "category": "Nullability",
+      "signals": {
+        "default-null": 2,
+        "null-check": 2
+      },
+      "preFixRanges": [
+        [
+          18,
+          24
+        ],
+        [
+          30,
+          36
+        ]
+      ],
+      "postFixRanges": [
+        [
+          18,
+          24
+        ],
+        [
+          30,
+          36
+        ]
+      ],
+      "message": "Fix wrong NRE on passing null expression to EnsureIndex.\n\nBoth overloads of \u0060EnsureIndex\u0060 used wrong \u0060string.IsNullOrEmpty\u0060 for checking\nthe expression parameter (probably copy/paste mistake). This triggered the\nimplicit operator \u0060String\u0060 on null expressions and resulted in not clear\nNRE exceptions ",
+      "date": "2020-03-20T15:23:25Z",
+      "snapshot": "files/mbdavid/LiteDB/b37ae336/Index.cs",
+      "bytes": 3303,
+      "gitBlobSha": "d8b0087a8efaf54354c71f43c980d30f85bc0ef2"
+    },
+    {
+      "id": "6aaddffeb034f17afeddcbac03bc6c7b904785ecc6fea52890d55f42be28a462",
+      "project": "mbdavid/LiteDB",
+      "license": "MIT",
+      "fixSha": "b3868f21fd2b8e4c02314e5043becb3948066536",
+      "preFixSha": "6cf440598cb6052bc24db02330c78ee13c03746f",
+      "path": "LiteDB/Client/Mapper/BsonMapper.Deserialize.cs",
+      "category": "Nullability",
+      "signals": {
+        "default-null": 1,
+        "is-null": 1,
+        "null-check": 1
+      },
+      "preFixRanges": [
+        [
+          1,
+          4
+        ],
+        [
+          309,
+          314
+        ]
+      ],
+      "postFixRanges": [
+        [
+          1,
+          4
+        ],
+        [
+          309,
+          320
+        ]
+      ],
+      "message": "Fix issue: Id is null when anon. type is de/-serialized",
+      "date": "2024-02-20T21:19:07Z",
+      "snapshot": "files/mbdavid/LiteDB/b3868f21/BsonMapper.Deserialize.cs",
+      "bytes": 10494,
+      "gitBlobSha": "0f3e6259e235486c2a375901be5d490eab613993"
+    },
+    {
+      "id": "87feda69ebc30923b6437b380192db0dec12ceb6721b0bedf74ee28c26cccb18",
+      "project": "mbdavid/LiteDB",
+      "license": "MIT",
+      "fixSha": "df63a4b0ffee0c138304e94c35a36b4e757ec3d2",
+      "preFixSha": "bab528c904fe4a9f61d7acd3e275c21b1db4b447",
+      "path": "LiteDB/Engine/Query/Pipeline/QueryPipe.cs",
+      "category": "ArrayBounds",
+      "signals": {
+        "bounds-word": 3,
+        "count-guard": 2,
+        "index-check": 1
+      },
+      "preFixRanges": [
+        [
+          28,
+          34
+        ],
+        [
+          48,
+          54
+        ],
+        [
+          80,
+          85
+        ]
+      ],
+      "postFixRanges": [
+        [
+          28,
+          42
+        ],
+        [
+          56,
+          62
+        ],
+        [
+          88,
+          111
+        ]
+      ],
+      "message": "Fix #2795 skip index nodes before document loading",
+      "date": "2026-09-18T22:47:25Z",
+      "snapshot": "files/mbdavid/LiteDB/df63a4b0/QueryPipe.cs",
+      "bytes": 4876,
+      "gitBlobSha": "b5ae07d6c40acfa7b5bfe14367ef83527f5ec92e"
+    },
+    {
+      "id": "737c08509e961d2e7dc638e081e03c0bcdb5d56fa727954872f7d16f3bca4ef8",
+      "project": "serilog/serilog",
+      "license": "Apache-2.0",
+      "fixSha": "4e8571e3fea28f6e26197fe7df855f68b5380d79",
+      "preFixSha": "5c3a7821aa0f654e551dc21e8e19089f6767666b",
+      "path": "src/Serilog/Capturing/GetablePropertyFinder.cs",
+      "category": "Nullability",
+      "signals": {
+        "default-null": 1,
+        "null-check": 1
+      },
+      "preFixRanges": [
+        [
+          39,
+          46
+        ]
+      ],
+      "postFixRanges": [
+        [
+          39,
+          52
+        ]
+      ],
+      "message": "Fix on GetPropertiesRecursive method not to generate exception on the case that BaseType of the argument Type is null",
+      "date": "2018-10-17T15:22:24Z",
+      "snapshot": "files/serilog/serilog/4e8571e3/GetablePropertyFinder.cs",
+      "bytes": 1638,
+      "gitBlobSha": "9c0f74e064804c71e28f14fa80e837cab70a955d"
+    }
+  ],
+  "pins": {
+    "schema": 1,
+    "projects": [
+      {
+        "project": "JamesNK/Newtonsoft.Json",
+        "owner": "JamesNK",
+        "repo": "Newtonsoft.Json",
+        "license": "MIT",
+        "licenseSource": "https://github.com/JamesNK/Newtonsoft.Json/blob/master/LICENSE.md",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "DapperLib/Dapper",
+        "owner": "DapperLib",
+        "repo": "Dapper",
+        "license": "Apache-2.0",
+        "licenseSource": "https://github.com/DapperLib/Dapper/blob/main/LICENSE",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "serilog/serilog",
+        "owner": "serilog",
+        "repo": "serilog",
+        "license": "Apache-2.0",
+        "licenseSource": "https://github.com/serilog/serilog/blob/dev/LICENSE",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "NLog/NLog",
+        "owner": "NLog",
+        "repo": "NLog",
+        "license": "BSD-3-Clause",
+        "licenseSource": "https://github.com/NLog/NLog/blob/dev/LICENSE.txt",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "Humanizr/Humanizer",
+        "owner": "Humanizr",
+        "repo": "Humanizer",
+        "license": "MIT",
+        "licenseSource": "https://github.com/Humanizr/Humanizer/blob/master/LICENSE",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "AutoFixture/AutoFixture",
+        "owner": "AutoFixture",
+        "repo": "AutoFixture",
+        "license": "MIT",
+        "licenseSource": "https://github.com/AutoFixture/AutoFixture/blob/master/LICENSE.txt",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "moq/moq",
+        "owner": "moq",
+        "repo": "moq",
+        "license": "BSD-3-Clause",
+        "licenseSource": "https://github.com/moq/moq/blob/main/LICENSE",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "FluentValidation/FluentValidation",
+        "owner": "FluentValidation",
+        "repo": "FluentValidation",
+        "license": "Apache-2.0",
+        "licenseSource": "https://github.com/FluentValidation/FluentValidation/blob/main/LICENSE",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "bchavez/Bogus",
+        "owner": "bchavez",
+        "repo": "Bogus",
+        "license": "MIT",
+        "licenseSource": "https://github.com/bchavez/Bogus/blob/master/LICENSE",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "jbogard/MediatR",
+        "owner": "jbogard",
+        "repo": "MediatR",
+        "license": "Apache-2.0",
+        "licenseSource": "https://github.com/jbogard/MediatR/blob/master/LICENSE",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "App-vNext/Polly",
+        "owner": "App-vNext",
+        "repo": "Polly",
+        "license": "BSD-3-Clause",
+        "licenseSource": "https://github.com/App-vNext/Polly/blob/master/LICENSE",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "icsharpcode/SharpZipLib",
+        "owner": "icsharpcode",
+        "repo": "SharpZipLib",
+        "license": "MIT",
+        "licenseSource": "https://github.com/icsharpcode/SharpZipLib/blob/master/LICENSE.txt",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "mbdavid/LiteDB",
+        "owner": "mbdavid",
+        "repo": "LiteDB",
+        "license": "MIT",
+        "licenseSource": "https://github.com/mbdavid/LiteDB/blob/master/LICENSE",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "AngleSharp/AngleSharp",
+        "owner": "AngleSharp",
+        "repo": "AngleSharp",
+        "license": "MIT",
+        "licenseSource": "https://github.com/AngleSharp/AngleSharp/blob/devel/LICENSE",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      },
+      {
+        "project": "xunit/xunit",
+        "owner": "xunit",
+        "repo": "xunit",
+        "license": "Apache-2.0",
+        "licenseSource": "https://github.com/xunit/xunit/blob/main/LICENSE",
+        "since": "2018-01-01T00:00:00Z",
+        "maxCommits": 1200
+      }
+    ]
+  },
+  "rejected": {
+    "JamesNK/Newtonsoft.Json": {
+      "not-source": 10,
+      "unclassified-patch": 13,
+      "no-accepted-file": 8,
+      "status:added": 5
+    },
+    "DapperLib/Dapper": {
+      "status:added": 1,
+      "not-source": 2,
+      "no-accepted-file": 1
+    },
+    "serilog/serilog": {
+      "unclassified-patch": 3,
+      "no-accepted-file": 2,
+      "not-source": 2,
+      "status:added": 1
+    },
+    "NLog/NLog": {
+      "unclassified-patch": 5,
+      "not-source": 4,
+      "no-accepted-file": 4
+    },
+    "Humanizr/Humanizer": {
+      "unclassified-patch": 2,
+      "not-source": 2,
+      "no-accepted-file": 2
+    },
+    "AutoFixture/AutoFixture": {},
+    "moq/moq": {},
+    "FluentValidation/FluentValidation": {
+      "not-source": 2,
+      "unclassified-patch": 11,
+      "no-accepted-file": 2
+    },
+    "bchavez/Bogus": {
+      "not-source": 5,
+      "unclassified-patch": 1,
+      "no-accepted-file": 2,
+      "status:added": 2
+    },
+    "jbogard/MediatR": {},
+    "App-vNext/Polly": {
+      "not-source": 1,
+      "no-accepted-file": 1
+    },
+    "icsharpcode/SharpZipLib": {
+      "not-source": 5
+    },
+    "mbdavid/LiteDB": {
+      "not-source": 11,
+      "status:added": 13,
+      "unclassified-patch": 40,
+      "no-accepted-file": 17,
+      "status:renamed": 3
+    },
+    "AngleSharp/AngleSharp": {
+      "not-source": 4,
+      "no-accepted-file": 5,
+      "unclassified-patch": 9
+    },
+    "xunit/xunit": {
+      "not-source": 1,
+      "no-accepted-file": 1
+    }
+  },
+  "minedAtUtc": "2026-11-24T00:10:37Z"
+}

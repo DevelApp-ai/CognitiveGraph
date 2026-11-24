@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "projects": [
+    {
+      "project": "JamesNK/Newtonsoft.Json",
+      "owner": "JamesNK",
+      "repo": "Newtonsoft.Json",
+      "license": "MIT",
+      "licenseSource": "https://github.com/JamesNK/Newtonsoft.Json/blob/master/LICENSE.md",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "DapperLib/Dapper",
+      "owner": "DapperLib",
+      "repo": "Dapper",
+      "license": "Apache-2.0",
+      "licenseSource": "https://github.com/DapperLib/Dapper/blob/main/LICENSE",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "serilog/serilog",
+      "owner": "serilog",
+      "repo": "serilog",
+      "license": "Apache-2.0",
+      "licenseSource": "https://github.com/serilog/serilog/blob/dev/LICENSE",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "NLog/NLog",
+      "owner": "NLog",
+      "repo": "NLog",
+      "license": "BSD-3-Clause",
+      "licenseSource": "https://github.com/NLog/NLog/blob/dev/LICENSE.txt",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "Humanizr/Humanizer",
+      "owner": "Humanizr",
+      "repo": "Humanizer",
+      "license": "MIT",
+      "licenseSource": "https://github.com/Humanizr/Humanizer/blob/master/LICENSE",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "AutoFixture/AutoFixture",
+      "owner": "AutoFixture",
+      "repo": "AutoFixture",
+      "license": "MIT",
+      "licenseSource": "https://github.com/AutoFixture/AutoFixture/blob/master/LICENSE.txt",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "moq/moq",
+      "owner": "moq",
+      "repo": "moq",
+      "license": "BSD-3-Clause",
+      "licenseSource": "https://github.com/moq/moq/blob/main/LICENSE",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "FluentValidation/FluentValidation",
+      "owner": "FluentValidation",
+      "repo": "FluentValidation",
+      "license": "Apache-2.0",
+      "licenseSource": "https://github.com/FluentValidation/FluentValidation/blob/main/LICENSE",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "bchavez/Bogus",
+      "owner": "bchavez",
+      "repo": "Bogus",
+      "license": "MIT",
+      "licenseSource": "https://github.com/bchavez/Bogus/blob/master/LICENSE",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "jbogard/MediatR",
+      "owner": "jbogard",
+      "repo": "MediatR",
+      "license": "Apache-2.0",
+      "licenseSource": "https://github.com/jbogard/MediatR/blob/master/LICENSE",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "App-vNext/Polly",
+      "owner": "App-vNext",
+      "repo": "Polly",
+      "license": "BSD-3-Clause",
+      "licenseSource": "https://github.com/App-vNext/Polly/blob/master/LICENSE",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "icsharpcode/SharpZipLib",
+      "owner": "icsharpcode",
+      "repo": "SharpZipLib",
+      "license": "MIT",
+      "licenseSource": "https://github.com/icsharpcode/SharpZipLib/blob/master/LICENSE.txt",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "mbdavid/LiteDB",
+      "owner": "mbdavid",
+      "repo": "LiteDB",
+      "license": "MIT",
+      "licenseSource": "https://github.com/mbdavid/LiteDB/blob/master/LICENSE",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "AngleSharp/AngleSharp",
+      "owner": "AngleSharp",
+      "repo": "AngleSharp",
+      "license": "MIT",
+      "licenseSource": "https://github.com/AngleSharp/AngleSharp/blob/devel/LICENSE",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    },
+    {
+      "project": "xunit/xunit",
+      "owner": "xunit",
+      "repo": "xunit",
+      "license": "Apache-2.0",
+      "licenseSource": "https://github.com/xunit/xunit/blob/main/LICENSE",
+      "since": "2018-01-01T00:00:00Z",
+      "maxCommits": 1200
+    }
+  ]
+}

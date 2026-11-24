@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CognitiveGraph\CognitiveGraph.csproj" />
+    <ProjectReference Include="..\CognitiveGraph.DefectMining\CognitiveGraph.DefectMining.csproj" />
   </ItemGroup>
 
 </Project>
